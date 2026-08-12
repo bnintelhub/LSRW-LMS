@@ -31,6 +31,8 @@ import {
   Upload,
   UserRound,
   Users,
+  ClipboardList,
+  FileText,
 } from "lucide-react";
 import {
   flexRender,
@@ -69,6 +71,12 @@ import {
   SpeakingGame,
   WritingGame,
 } from "./features/student/games";
+import { StudentDailyTasks } from "./features/student/DailyTasks";
+import { StudentDailyReport } from "./features/student/DailyReport";
+import { DailyTaskDesk } from "./features/teacher/DailyTaskDesk";
+import { SchoolCrmReports } from "./features/admin/SchoolCrmReports";
+import { useCrm } from "./context/CrmContext";
+import { todayISO } from "./lib/aiTaskGenerator";
 
 /** Class 1–4: game labs. Class 5–12: AI Speaking/Listening/Reading/Writing labs. */
 function isGameBand(classNumber: number) {
@@ -79,7 +87,7 @@ type Role = "admin" | "teacher" | "student";
 type Skill = "Listening" | "Speaking" | "Reading" | "Writing";
 type Profile = "Foundational" | "Elementary" | "Exam-Track" | "Advanced";
 type Activity = Skill | "Idle";
-type View = "home" | Skill;
+type View = "home" | "tasks" | "report" | Skill;
 
 type Scores = Record<Skill, number>;
 
@@ -782,6 +790,8 @@ function StudentExperience({ student, students }: { student: Student; students: 
           </div>
           <nav className="mt-5 space-y-2">
             <SideButton active={view === "home"} icon={<Home size={17} />} label="Dashboard" onClick={() => setView("home")} />
+            <SideButton active={view === "tasks"} icon={<ClipboardList size={17} />} label="Today's Tasks" onClick={() => setView("tasks")} />
+            <SideButton active={view === "report"} icon={<FileText size={17} />} label="Daily Report" onClick={() => setView("report")} />
             {gameMode ? (
               <>
                 <SideButton active={view === "Listening"} icon={<Headphones size={17} />} label="Listening Game" onClick={() => setView("Listening")} />
@@ -801,9 +811,28 @@ function StudentExperience({ student, students }: { student: Student; students: 
         </aside>
 
         <section>
-          {view === "home" ? (
+          {view === "home" && (
             <StudentHome student={student} profile={profile} meta={meta} students={students} setView={setView} avg={avg} />
-          ) : (
+          )}
+          {view === "tasks" && (
+            <StudentDailyTasks
+              studentId={student.id}
+              classNumber={student.classNumber}
+              section={student.section}
+              scores={student.scores}
+              onStartSkill={(skill) => setView(skill)}
+            />
+          )}
+          {view === "report" && (
+            <StudentDailyReport
+              studentId={student.id}
+              classNumber={student.classNumber}
+              section={student.section}
+              name={student.name}
+              scores={student.scores}
+            />
+          )}
+          {view !== "home" && view !== "tasks" && view !== "report" && (
             <PracticeScreen student={student} profile={profile} skill={view} setView={setView} />
           )}
         </section>
@@ -1004,7 +1033,7 @@ function PracticeScreen({
 }
 
 function AdminDashboard({ students, dispatch }: { students: Student[]; dispatch: (action: AppAction) => void }) {
-  const [tab, setTab] = useState<"overview" | "onboard" | "students" | "reports">("overview");
+  const [tab, setTab] = useState<"overview" | "onboard" | "students" | "reports" | "crm">("overview");
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
       <DashboardTabs
@@ -1015,12 +1044,14 @@ function AdminDashboard({ students, dispatch }: { students: Student[]; dispatch:
           ["onboard", "Bulk Onboarding"],
           ["students", "Student Management"],
           ["reports", "Reports"],
+          ["crm", "School CRM"],
         ]}
       />
       {tab === "overview" && <AdminOverview students={students} />}
       {tab === "onboard" && <BulkOnboarding dispatch={dispatch} />}
       {tab === "students" && <StudentManagement students={students} dispatch={dispatch} />}
       {tab === "reports" && <AdminReports students={students} />}
+      {tab === "crm" && <SchoolCrmReports students={students} />}
     </main>
   );
 }
@@ -1337,7 +1368,7 @@ function AdminReports({ students }: { students: Student[] }) {
 }
 
 function TeacherDashboard({ teacher, students }: { teacher: Teacher; students: Student[] }) {
-  const [tab, setTab] = useState<"dashboard" | "live" | "roster" | "reviews">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "tasks" | "live" | "roster" | "reviews">("tasks");
   const [activeClass, setActiveClass] = useState(teacher.allotted[0]);
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
@@ -1345,14 +1376,18 @@ function TeacherDashboard({ teacher, students }: { teacher: Teacher; students: S
         active={tab}
         setActive={(value) => setTab(value as typeof tab)}
         tabs={[
+          ["tasks", "Daily Tasks"],
           ["dashboard", "Teacher Dashboard"],
           ["live", "Live Monitoring"],
           ["roster", "Roster"],
           ["reviews", "Pending Reviews"],
         ]}
       />
+      {tab === "tasks" && (
+        <DailyTaskDesk teacherId={teacher.id} allotted={teacher.allotted} students={students} />
+      )}
       {tab === "dashboard" && <TeacherHome teacher={teacher} students={students} activeClass={activeClass} setActiveClass={setActiveClass} setTab={setTab} />}
-      {tab === "live" && <LiveMonitoring activeClass={activeClass} students={students} />}
+      {tab === "live" && <LiveMonitoring activeClass={activeClass} students={students} teacher={teacher} />}
       {tab === "roster" && <TeacherRoster teacher={teacher} students={students} />}
       {tab === "reviews" && <PendingReviews teacher={teacher} students={students} />}
     </main>
@@ -1370,7 +1405,7 @@ function TeacherHome({
   students: Student[];
   activeClass: { classNumber: number; section: "A" | "B" };
   setActiveClass: (value: { classNumber: number; section: "A" | "B" }) => void;
-  setTab: (tab: "dashboard" | "live" | "roster" | "reviews") => void;
+  setTab: (tab: "dashboard" | "tasks" | "live" | "roster" | "reviews") => void;
 }) {
   const scoped = students.filter((student) => teacher.allotted.some((item) => item.classNumber === student.classNumber && item.section === student.section));
   return (
@@ -1379,7 +1414,7 @@ function TeacherHome({
         <div>
           <Badge icon={<UserRound size={17} />} text={`${teacher.band} Teacher · scoped access only`} />
           <h1 className="mt-4 text-4xl font-black">Welcome, {teacher.name}</h1>
-          <p className="mt-3 text-slate-600">Start lab sessions, watch students live, add remarks and review speaking/writing submissions.</p>
+          <p className="mt-3 text-slate-600">Assign AI daily tasks, start lab sessions, review submissions, and track class completion.</p>
         </div>
       </HeroCard>
       <div className="grid gap-4 md:grid-cols-4">
@@ -1387,6 +1422,11 @@ function TeacherHome({
         <Metric title="Allotted Sections" value={String(teacher.allotted.length)} icon={<School />} />
         <Metric title="Pending Reviews" value="8" icon={<PencilLine />} />
         <Metric title="Live Readiness" value="Good" icon={<MonitorDot />} />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <button className="rounded-2xl bg-orange-500 px-6 py-3 font-black text-white" onClick={() => setTab("tasks")}>
+          Open Daily Task Desk
+        </button>
       </div>
       <div className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-black">Start Lab Session</h2>
@@ -1409,7 +1449,16 @@ function TeacherHome({
   );
 }
 
-function LiveMonitoring({ activeClass, students }: { activeClass: { classNumber: number; section: "A" | "B" }; students: Student[] }) {
+function LiveMonitoring({
+  activeClass,
+  students,
+  teacher,
+}: {
+  activeClass: { classNumber: number; section: "A" | "B" };
+  students: Student[];
+  teacher: Teacher;
+}) {
+  const { dispatch } = useCrm();
   const roster = students.filter((student) => student.classNumber === activeClass.classNumber && student.section === activeClass.section);
   const [tick, setTick] = useState(0);
   const [selected, setSelected] = useState<SessionStudent | null>(null);
@@ -1430,16 +1479,18 @@ function LiveMonitoring({ activeClass, students }: { activeClass: { classNumber:
   });
 
   if (ended) {
-    const completion = Math.round(sessionStudents.reduce((sum, item) => sum + item.progress, 0) / sessionStudents.length);
+    const completion = Math.round(sessionStudents.reduce((sum, item) => sum + item.progress, 0) / Math.max(1, sessionStudents.length));
+    const averageScore = Math.round(sessionStudents.reduce((sum, item) => sum + item.currentScore, 0) / Math.max(1, sessionStudents.length));
+    const flags = sessionStudents.filter((item) => item.flag !== "ok").length;
     return (
       <div className="rounded-[2rem] border border-orange-100 bg-white p-8 shadow-sm">
         <Badge icon={<CheckCircle2 size={17} />} text="Session Summary" />
         <h1 className="mt-4 text-4xl font-black">Class {activeClass.classNumber}-{activeClass.section} lab period completed</h1>
         <div className="mt-6 grid gap-4 md:grid-cols-4">
           <Metric title="Completion" value={`${completion}%`} icon={<CheckCircle2 />} />
-          <Metric title="Average Score" value={`${Math.round(sessionStudents.reduce((sum, item) => sum + item.currentScore, 0) / sessionStudents.length)}%`} icon={<BarChart3 />} />
+          <Metric title="Average Score" value={`${averageScore}%`} icon={<BarChart3 />} />
           <Metric title="Time Spent" value="38 min" icon={<Clock />} />
-          <Metric title="Flags" value={String(sessionStudents.filter((item) => item.flag !== "ok").length)} icon={<Flag />} />
+          <Metric title="Flags" value={String(flags)} icon={<Flag />} />
         </div>
         <button className="mt-6 rounded-2xl bg-orange-500 px-5 py-3 font-black text-white" onClick={() => setEnded(false)}>
           Restart Live Monitoring
@@ -1455,7 +1506,32 @@ function LiveMonitoring({ activeClass, students }: { activeClass: { classNumber:
           <Badge icon={<MonitorDot size={17} />} text="Live session running" />
           <h1 className="mt-2 text-3xl font-black">Class {activeClass.classNumber}-{activeClass.section} Monitoring Grid</h1>
         </div>
-        <button className="rounded-2xl bg-slate-900 px-5 py-3 font-black text-white" onClick={() => setEnded(true)}>End Session</button>
+        <button
+          className="rounded-2xl bg-slate-900 px-5 py-3 font-black text-white"
+          onClick={() => {
+            const completion = Math.round(sessionStudents.reduce((sum, item) => sum + item.progress, 0) / Math.max(1, sessionStudents.length));
+            const averageScore = Math.round(sessionStudents.reduce((sum, item) => sum + item.currentScore, 0) / Math.max(1, sessionStudents.length));
+            const flags = sessionStudents.filter((item) => item.flag !== "ok").length;
+            dispatch({
+              type: "addSession",
+              session: {
+                id: `sess-${Date.now()}`,
+                date: todayISO(),
+                classNumber: activeClass.classNumber,
+                section: activeClass.section,
+                teacherId: teacher.id,
+                teacherName: teacher.name,
+                completionPct: completion,
+                averageScore,
+                timeSpentMin: 38,
+                flags,
+              },
+            });
+            setEnded(true);
+          }}
+        >
+          End Session
+        </button>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sessionStudents.map((item) => (
@@ -1488,10 +1564,11 @@ function LiveMonitoring({ activeClass, students }: { activeClass: { classNumber:
 }
 
 function TeacherRoster({ teacher, students }: { teacher: Teacher; students: Student[] }) {
+  const { dispatch, reportFor } = useCrm();
   const scoped = students.filter((student) => teacher.allotted.some((item) => item.classNumber === student.classNumber && item.section === student.section));
   const [selected, setSelected] = useState<Student | null>(null);
   const [remark, setRemark] = useState("");
-  const [remarks, setRemarks] = useState<string[]>([]);
+  const date = todayISO();
   return (
     <div className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm">
       <h1 className="text-3xl font-black">Scoped Class Roster</h1>
@@ -1509,14 +1586,21 @@ function TeacherRoster({ teacher, students }: { teacher: Teacher; students: Stud
             <StudentProfile student={selected} />
             <div className="mt-5">
               <textarea className="h-24 w-full rounded-2xl border border-slate-200 p-3" placeholder="Add teacher remark" value={remark} onChange={(event) => setRemark(event.target.value)} />
-              <button className="mt-3 rounded-2xl bg-orange-500 px-4 py-2 font-black text-white" onClick={() => {
-                if (remark.trim()) setRemarks((items) => [...items, `${selected.name}: ${remark}`]);
-                setRemark("");
-              }}>
+              <button
+                className="mt-3 rounded-2xl bg-orange-500 px-4 py-2 font-black text-white"
+                onClick={() => {
+                  if (remark.trim()) {
+                    dispatch({ type: "addRemark", studentId: selected.id, date, remark: `${teacher.name}: ${remark.trim()}` });
+                    setRemark("");
+                  }
+                }}
+              >
                 Add Remark
               </button>
               <div className="mt-3 space-y-2">
-                {remarks.map((item, index) => <p key={index} className="rounded-2xl bg-orange-50 p-3 text-sm">{item}</p>)}
+                {(reportFor(selected.id, date)?.teacherRemarks ?? []).map((item, index) => (
+                  <p key={index} className="rounded-2xl bg-orange-50 p-3 text-sm">{item}</p>
+                ))}
               </div>
             </div>
           </div>
