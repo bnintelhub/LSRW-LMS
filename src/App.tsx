@@ -63,6 +63,17 @@ import {
   SpeakingLab,
   WritingLab,
 } from "./features/student/labs";
+import {
+  ListeningGame,
+  ReadingGame,
+  SpeakingGame,
+  WritingGame,
+} from "./features/student/games";
+
+/** Class 1–4: game labs. Class 5–12: AI Speaking/Listening/Reading/Writing labs. */
+function isGameBand(classNumber: number) {
+  return classNumber < 5;
+}
 
 type Role = "admin" | "teacher" | "student";
 type Skill = "Listening" | "Speaking" | "Reading" | "Writing";
@@ -753,24 +764,39 @@ function StudentExperience({ student, students }: { student: Student; students: 
   const meta = classMeta[student.classNumber];
   const profile = meta.profile;
   const avg = average(student.scores);
+  const gameMode = isGameBand(student.classNumber);
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-sm">
-          <div className={profile === "Foundational" ? "ai-teacher-card" : "rounded-3xl bg-orange-50 p-5"}>
-            <div className="text-4xl">{profile === "Foundational" ? "🤖" : profile === "Advanced" ? "🎯" : "📚"}</div>
+          <div className={gameMode ? "ai-teacher-card" : "rounded-3xl bg-orange-50 p-5"}>
+            <div className="text-4xl">{gameMode ? "🎮" : profile === "Advanced" ? "🎯" : "📚"}</div>
             <h2 className="mt-3 text-xl font-black">{student.name}</h2>
             <p className="text-sm font-semibold text-slate-500">
               Class {student.classNumber}-{student.section} · {meta.level}
             </p>
+            <p className="mt-2 text-xs font-black uppercase text-orange-600">
+              {gameMode ? "Game-based LSRW" : "AI Lab Mode"}
+            </p>
           </div>
           <nav className="mt-5 space-y-2">
             <SideButton active={view === "home"} icon={<Home size={17} />} label="Dashboard" onClick={() => setView("home")} />
-            <SideButton active={view === "Speaking"} icon={<Mic size={17} />} label="AI Speaking Lab" onClick={() => setView("Speaking")} />
-            <SideButton active={view === "Listening"} icon={<Headphones size={17} />} label="Listening Studio" onClick={() => setView("Listening")} />
-            <SideButton active={view === "Reading"} icon={<BookOpen size={17} />} label="Reading & WPM" onClick={() => setView("Reading")} />
-            <SideButton active={view === "Writing"} icon={<PencilLine size={17} />} label="Writing AI Checker" onClick={() => setView("Writing")} />
+            {gameMode ? (
+              <>
+                <SideButton active={view === "Listening"} icon={<Headphones size={17} />} label="Listening Game" onClick={() => setView("Listening")} />
+                <SideButton active={view === "Speaking"} icon={<Mic size={17} />} label="Speaking Game" onClick={() => setView("Speaking")} />
+                <SideButton active={view === "Reading"} icon={<BookOpen size={17} />} label="Reading Game" onClick={() => setView("Reading")} />
+                <SideButton active={view === "Writing"} icon={<PencilLine size={17} />} label="Writing Game" onClick={() => setView("Writing")} />
+              </>
+            ) : (
+              <>
+                <SideButton active={view === "Speaking"} icon={<Mic size={17} />} label="AI Speaking Lab" onClick={() => setView("Speaking")} />
+                <SideButton active={view === "Listening"} icon={<Headphones size={17} />} label="Listening Studio" onClick={() => setView("Listening")} />
+                <SideButton active={view === "Reading"} icon={<BookOpen size={17} />} label="Reading & WPM" onClick={() => setView("Reading")} />
+                <SideButton active={view === "Writing"} icon={<PencilLine size={17} />} label="Writing AI Checker" onClick={() => setView("Writing")} />
+              </>
+            )}
           </nav>
         </aside>
 
@@ -806,23 +832,28 @@ function StudentHome({
     score: student.scores[skill],
     classAvg: classAverage(students, student.classNumber),
   }));
+  const gameMode = isGameBand(student.classNumber);
   return (
     <div className="space-y-6">
       <HeroCard profile={profile}>
         <div>
-          <Badge icon={<Award size={17} />} text={`Class ${student.classNumber} · ${meta.cefr} · ${meta.ui}`} />
+          <Badge icon={<Award size={17} />} text={`Class ${student.classNumber} · ${meta.cefr} · ${gameMode ? "Game Mode" : "AI Lab Mode"}`} />
           <h1 className="mt-4 text-3xl font-black md:text-5xl">
-            {profile === "Foundational"
-              ? "Ready to play, listen and speak?"
-              : profile === "Elementary"
-                ? "Today's LSRW learning path"
-                : profile === "Exam-Track"
-                  ? "Exam practice dashboard"
-                  : "Communication readiness dashboard"}
+            {gameMode
+              ? "Play, listen, speak and win stars!"
+              : profile === "Exam-Track"
+                ? "Exam practice dashboard"
+                : profile === "Advanced"
+                  ? "Communication readiness dashboard"
+                  : "Today's LSRW AI learning path"}
           </h1>
-          <p className="mt-3 max-w-2xl text-slate-600">Focus for this class: {meta.focus}. All lessons use class-specific scores and progress.</p>
+          <p className="mt-3 max-w-2xl text-slate-600">
+            {gameMode
+              ? "Classes 1–4 use game-based Listening, Speaking, Reading and Writing with clear AI voice."
+              : "Classes 5–12 use AI Speaking Lab, Listening Studio, Reading & WPM, and Writing AI Checker."}
+          </p>
         </div>
-        {profile === "Foundational" && <AiTeacher mood="wave" />}
+        {gameMode && <AiTeacher mood="wave" />}
       </HeroCard>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -835,8 +866,10 @@ function StudentHome({
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <div className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 flex items-center justify-between text-xl font-black">
-              <span>Today's Labs</span>
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">AI Labs ready</span>
+              <span>{gameMode ? "Today's Games" : "Today's AI Labs"}</span>
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
+                {gameMode ? "Class 1–4 Games" : "Class 5+ AI Labs"}
+              </span>
             </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {skills.map((skill) => (
@@ -850,17 +883,35 @@ function StudentHome({
                   {skillIcon(skill)}
                 </span>
                 <span className="text-left">
-                  <span className="block text-lg font-black">{lessonCopy[profile][skill].title}</span>
-                  <span className="text-sm text-slate-600">{lessonCopy[profile][skill].prompt}</span>
+                  <span className="block text-lg font-black">
+                    {gameMode
+                      ? ({
+                          Listening: "Pop the Sound Bubble",
+                          Speaking: "Echo Speak Game",
+                          Reading: "Picture Word Match",
+                          Writing: "Word Builder Game",
+                        }[skill])
+                      : lessonCopy[profile][skill].title}
+                  </span>
+                  <span className="text-sm text-slate-600">
+                    {gameMode
+                      ? ({
+                          Listening: "Listen and tap the matching picture bubble.",
+                          Speaking: "Hear clear AI voice, then speak into the mic.",
+                          Reading: "Match sight words with pictures.",
+                          Writing: "Build words with letter tiles.",
+                        }[skill])
+                      : lessonCopy[profile][skill].prompt}
+                  </span>
                 </span>
-                {profile === "Foundational" && <span className="gif-orbit" />}
+                {gameMode && <span className="gif-orbit" />}
               </motion.button>
             ))}
           </div>
         </div>
         <div className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-xl font-black">
-            {profile === "Foundational" ? "Badge Shelf" : "Skill Radar"}
+            {gameMode ? "Star Badges" : "Skill Radar"}
           </h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -906,12 +957,20 @@ function PracticeScreen({
   skill: Skill;
   setView: (view: View) => void;
 }) {
-  const labTitle: Record<Skill, string> = {
-    Speaking: "AI Speaking Lab",
-    Listening: "Listening Studio",
-    Reading: "Reading & WPM Lab",
-    Writing: "Writing AI Checker",
-  };
+  const gameMode = isGameBand(student.classNumber);
+  const labTitle: Record<Skill, string> = gameMode
+    ? {
+        Listening: "Listening Game",
+        Speaking: "Speaking Game",
+        Reading: "Reading Game",
+        Writing: "Writing Game",
+      }
+    : {
+        Speaking: "AI Speaking Lab",
+        Listening: "Listening Studio",
+        Reading: "Reading & WPM Lab",
+        Writing: "Writing AI Checker",
+      };
 
   return (
     <div className="space-y-5">
@@ -919,13 +978,27 @@ function PracticeScreen({
         <button className="rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-700" onClick={() => setView("home")}>
           Back to dashboard
         </button>
-        <Badge icon={skillIcon(skill)} text={`${labTitle[skill]} · Class ${student.classNumber} · ${profile}`} />
+        <Badge
+          icon={skillIcon(skill)}
+          text={`${labTitle[skill]} · Class ${student.classNumber} · ${gameMode ? "Game Mode" : "AI Lab"}`}
+        />
       </div>
 
-      {skill === "Speaking" && <SpeakingLab profile={profile} classNumber={student.classNumber} />}
-      {skill === "Listening" && <ListeningLab profile={profile} classNumber={student.classNumber} />}
-      {skill === "Reading" && <ReadingLab profile={profile} classNumber={student.classNumber} />}
-      {skill === "Writing" && <WritingLab profile={profile} classNumber={student.classNumber} />}
+      {gameMode ? (
+        <>
+          {skill === "Listening" && <ListeningGame classNumber={student.classNumber} />}
+          {skill === "Speaking" && <SpeakingGame classNumber={student.classNumber} />}
+          {skill === "Reading" && <ReadingGame classNumber={student.classNumber} />}
+          {skill === "Writing" && <WritingGame classNumber={student.classNumber} />}
+        </>
+      ) : (
+        <>
+          {skill === "Speaking" && <SpeakingLab profile={profile} classNumber={student.classNumber} />}
+          {skill === "Listening" && <ListeningLab profile={profile} classNumber={student.classNumber} />}
+          {skill === "Reading" && <ReadingLab profile={profile} classNumber={student.classNumber} />}
+          {skill === "Writing" && <WritingLab profile={profile} classNumber={student.classNumber} />}
+        </>
+      )}
     </div>
   );
 }
