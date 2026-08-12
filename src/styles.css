@@ -53,7 +53,7 @@ button {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 65%, #fff7ed 100%);
 }
 
-.mascot-card {
+.ai-teacher-card {
   border-radius: 1.75rem;
   background:
     radial-gradient(circle at 80% 15%, rgba(251, 191, 36, 0.35), transparent 25%),

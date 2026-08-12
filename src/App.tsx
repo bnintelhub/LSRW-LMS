@@ -3,11 +3,10 @@ import {
   ReactNode,
   useEffect,
   useMemo,
-  useRef,
   useReducer,
   useState,
 } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Award,
   BarChart3,
@@ -61,6 +60,12 @@ import {
   YAxis,
 } from "recharts";
 import * as XLSX from "xlsx";
+import {
+  ListeningLab,
+  ReadingLab,
+  SpeakingLab,
+  WritingLab,
+} from "./features/student/labs";
 
 type Role = "admin" | "teacher" | "student";
 type Skill = "Listening" | "Speaking" | "Reading" | "Writing";
@@ -70,42 +75,6 @@ type View = "home" | Skill;
 
 type Scores = Record<Skill, number>;
 
-type SpeechAnalysis = {
-  transcript: string;
-  pronunciation: number;
-  fluency: number;
-  confidence: number;
-  pace: number;
-  clarity: number;
-};
-
-type SpeechRecognitionResultLike = {
-  readonly 0: { transcript: string };
-};
-
-type SpeechRecognitionEventLike = Event & {
-  results: {
-    readonly length: number;
-    [index: number]: SpeechRecognitionResultLike;
-  };
-};
-
-type SpeechRecognitionLike = EventTarget & {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-declare global {
-  interface Window {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  }
-}
 
 type Student = {
   id: string;
@@ -177,7 +146,7 @@ const classMeta: Record<
     level: "Foundational / Pre-Reader",
     cefr: "Pre-A1",
     profile: "Foundational",
-    ui: "Mascot-led voice-first games",
+    ui: "AI teacher voice-first games",
     focus: "phonics, picture matching, tracing",
   },
   2: {
@@ -366,14 +335,14 @@ const lessonCopy: Record<
   Foundational: {
     Listening: {
       title: "Pop the Sound Bubble",
-      prompt: "Listen to the mascot and pop the picture bubble that matches.",
+      prompt: "Listen to the clear AI teacher voice and pop the matching picture bubble.",
       task: "Audio says: 'This is a red ball'",
       metric: "engagement",
     },
     Speaking: {
-      title: "Mascot Repeat",
-      prompt: "Say the happy sentence after Bunny: This is a ball.",
-      task: "Record a 5 second answer and clap with the mascot.",
+      title: "AI Repeat Practice",
+      prompt: "Listen to the clear AI voice and repeat: This is a ball.",
+      task: "Record a 5 second answer and get instant speech feedback.",
       metric: "pronunciation",
     },
     Reading: {
@@ -482,152 +451,6 @@ const listeningScripts: Record<Profile, string> = {
   "Exam-Track": "Urban water conservation needs planning, citizen participation and regular monitoring.",
   Advanced: "Ethical artificial intelligence in education requires transparency, consent and measurable learning outcomes.",
 };
-
-function normalizeWords(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function clampScore(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function analyzeSpeech(target: string, transcript: string, durationSeconds: number, averageVolume: number): SpeechAnalysis {
-  const targetWords = normalizeWords(target);
-  const spokenWords = normalizeWords(transcript);
-  const matched = targetWords.filter((word) => spokenWords.includes(word)).length;
-  const pronunciation = targetWords.length ? (matched / targetWords.length) * 100 : 0;
-  const pace = durationSeconds > 0 ? (spokenWords.length / durationSeconds) * 60 : 0;
-  const idealPace = targetWords.length <= 5 ? 55 : 105;
-  const fluency = 100 - Math.abs(pace - idealPace) * 0.55;
-  const confidence = 45 + averageVolume * 95;
-  const clarity = pronunciation * 0.55 + fluency * 0.25 + confidence * 0.2;
-  return {
-    transcript,
-    pronunciation: clampScore(pronunciation),
-    fluency: clampScore(fluency),
-    confidence: clampScore(confidence),
-    pace: Math.round(pace),
-    clarity: clampScore(clarity),
-  };
-}
-
-function speakText(text: string, langCode = "en", rate = 1, onEnd?: () => void) {
-  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
-    console.warn("SpeechSynthesis API is not supported in this browser.");
-    onEnd?.();
-    return;
-  }
-
-  const synth = window.speechSynthesis;
-  const langMap: Record<string, string> = {
-    en: "en-US",
-    hi: "hi-IN",
-    bn: "bn-IN",
-    ta: "ta-IN",
-    te: "te-IN",
-    mr: "mr-IN",
-    gu: "gu-IN",
-    kn: "kn-IN",
-    ml: "ml-IN",
-    or: "or-IN",
-    pa: "pa-IN",
-    ur: "ur-PK",
-  };
-  const targetLang = langMap[langCode] ?? "en-US";
-
-  const play = (retry = true) => {
-    const voices = synth.getVoices();
-    const matchedVoice =
-      voices.find((voice) => voice.lang === targetLang) ??
-      voices.find((voice) => voice.lang.startsWith(targetLang.split("-")[0])) ??
-      voices.find((voice) => voice.lang.toLowerCase().startsWith("en"));
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = targetLang;
-    utterance.voice = matchedVoice ?? null;
-    utterance.rate = Math.max(0.5, Math.min(2, rate));
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    utterance.onend = () => onEnd?.();
-    utterance.onerror = () => onEnd?.();
-
-    synth.cancel();
-    window.setTimeout(() => {
-      synth.resume();
-      synth.speak(utterance);
-    }, 20);
-
-    if (retry) {
-      window.setTimeout(() => {
-        if (!synth.speaking && !synth.pending) play(false);
-      }, 350);
-    }
-  };
-
-  if (synth.getVoices().length === 0) {
-    synth.onvoiceschanged = () => {
-      synth.onvoiceschanged = null;
-      play();
-    };
-    window.setTimeout(() => play(), 500);
-    return;
-  }
-
-  play();
-}
-
-function stopSpeech() {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-function playSoundEffect(type: "record_start" | "record_stop" | "success" | "click" | "chime") {
-  try {
-    const AudioContextClass = window.AudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const now = ctx.currentTime;
-
-    if (type === "success" || type === "chime") {
-      [523.25, 659.25, 783.99, 1046.5].forEach((freq, index) => {
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.frequency.value = freq;
-        const noteTime = now + index * 0.08;
-        gain.gain.setValueAtTime(0.18, noteTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.2);
-        oscillator.start(noteTime);
-        oscillator.stop(noteTime + 0.2);
-      });
-      window.setTimeout(() => void ctx.close(), 650);
-      return;
-    }
-
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-    oscillator.type = type === "click" ? "triangle" : "sine";
-    const startFreq = type === "record_stop" ? 880 : type === "click" ? 600 : 440;
-    const endFreq = type === "record_stop" ? 440 : 880;
-    oscillator.frequency.setValueAtTime(startFreq, now);
-    oscillator.frequency.exponentialRampToValueAtTime(endFreq, now + 0.15);
-    gain.gain.setValueAtTime(type === "click" ? 0.1 : 0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-    oscillator.start(now);
-    oscillator.stop(now + 0.16);
-    window.setTimeout(() => void ctx.close(), 260);
-  } catch (error) {
-    console.warn("Web Audio effect failed", error);
-  }
-}
 
 function scoreFor(classNumber: number, roll: number, skill: Skill) {
   const index = skills.indexOf(skill) + 1;
@@ -844,7 +667,7 @@ function LoginPage({
             ))}
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <Feature icon={<Sparkles />} title="Junior games" text="Mascot, bubbles, matching cards and reward bursts for Classes 1-3." />
+            <Feature icon={<Sparkles />} title="Junior games" text="Clear AI teacher voice, bubbles, matching cards and reward bursts for Classes 1-3." />
             <Feature icon={<MonitorDot />} title="Live lab period" text="Teacher tiles update status and progress every few seconds." />
             <Feature icon={<FileSpreadsheet />} title="Real Excel flow" text="Download sample, upload rows, validate, confirm and export credentials." />
             <Feature icon={<BarChart3 />} title="Consistent analytics" text="Scores agree across student dashboard, teacher drawer and reports." />
@@ -943,8 +766,8 @@ function StudentExperience({ student, students }: { student: Student; students: 
     <main className="mx-auto max-w-7xl px-6 py-6">
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-sm">
-          <div className={profile === "Foundational" ? "mascot-card" : "rounded-3xl bg-orange-50 p-5"}>
-            <div className="text-4xl">{profile === "Foundational" ? "🦊" : profile === "Advanced" ? "🎯" : "📚"}</div>
+          <div className={profile === "Foundational" ? "ai-teacher-card" : "rounded-3xl bg-orange-50 p-5"}>
+            <div className="text-4xl">{profile === "Foundational" ? "🤖" : profile === "Advanced" ? "🎯" : "📚"}</div>
             <h2 className="mt-3 text-xl font-black">{student.name}</h2>
             <p className="text-sm font-semibold text-slate-500">
               Class {student.classNumber}-{student.section} · {meta.level}
@@ -952,9 +775,10 @@ function StudentExperience({ student, students }: { student: Student; students: 
           </div>
           <nav className="mt-5 space-y-2">
             <SideButton active={view === "home"} icon={<Home size={17} />} label="Dashboard" onClick={() => setView("home")} />
-            {skills.map((skill) => (
-              <SideButton key={skill} active={view === skill} icon={skillIcon(skill)} label={skill} onClick={() => setView(skill)} />
-            ))}
+            <SideButton active={view === "Speaking"} icon={<Mic size={17} />} label="AI Speaking Lab" onClick={() => setView("Speaking")} />
+            <SideButton active={view === "Listening"} icon={<Headphones size={17} />} label="Listening Studio" onClick={() => setView("Listening")} />
+            <SideButton active={view === "Reading"} icon={<BookOpen size={17} />} label="Reading & WPM" onClick={() => setView("Reading")} />
+            <SideButton active={view === "Writing"} icon={<PencilLine size={17} />} label="Writing AI Checker" onClick={() => setView("Writing")} />
           </nav>
         </aside>
 
@@ -1006,7 +830,7 @@ function StudentHome({
           </h1>
           <p className="mt-3 max-w-2xl text-slate-600">Focus for this class: {meta.focus}. All lessons use class-specific scores and progress.</p>
         </div>
-        {profile === "Foundational" && <Mascot mood="wave" />}
+        {profile === "Foundational" && <AiTeacher mood="wave" />}
       </HeroCard>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -1018,10 +842,10 @@ function StudentHome({
 
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <div className="rounded-[2rem] border border-orange-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-black">{profile === "Foundational" ? "Animated Lessons" : "Today's Lessons"}</h2>
-            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">No dead links</span>
-          </div>
+            <h2 className="mb-4 flex items-center justify-between text-xl font-black">
+              <span>Today's Labs</span>
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">AI Labs ready</span>
+            </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {skills.map((skill) => (
               <motion.button
@@ -1090,246 +914,26 @@ function PracticeScreen({
   skill: Skill;
   setView: (view: View) => void;
 }) {
-  const [submitted, setSubmitted] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [choice, setChoice] = useState("");
-  const [speechAnalysis, setSpeechAnalysis] = useState<SpeechAnalysis | null>(null);
-  const content = lessonCopy[profile][skill];
-
-  const submit = () => {
-    setProcessing(true);
-    window.setTimeout(() => {
-      setProcessing(false);
-      setSubmitted(true);
-    }, 650);
+  const labTitle: Record<Skill, string> = {
+    Speaking: "AI Speaking Lab",
+    Listening: "Listening Studio",
+    Reading: "Reading & WPM Lab",
+    Writing: "Writing AI Checker",
   };
 
   return (
-    <div className="space-y-6">
-      <HeroCard profile={profile}>
-        <div>
-          <button className="mb-4 rounded-full bg-white/70 px-4 py-2 text-sm font-bold text-orange-700" onClick={() => setView("home")}>
-            Back to dashboard
-          </button>
-          <Badge icon={skillIcon(skill)} text={`${profile} ${skill} practice · Class ${student.classNumber}`} />
-          <h1 className="mt-4 text-4xl font-black">{content.title}</h1>
-          <p className="mt-3 max-w-2xl text-slate-600">{content.prompt}</p>
-        </div>
-        {profile === "Foundational" && <Mascot mood={submitted ? "celebrate" : "wave"} />}
-      </HeroCard>
-
-      {profile === "Foundational" ? (
-        <FoundationalGame
-          skill={skill}
-          profile={profile}
-          choice={choice}
-          setChoice={setChoice}
-          submit={submit}
-          onSpeechAnalysis={setSpeechAnalysis}
-        />
-      ) : (
-        <StructuredPractice
-          profile={profile}
-          skill={skill}
-          content={content}
-          choice={choice}
-          setChoice={setChoice}
-          submit={submit}
-          onSpeechAnalysis={setSpeechAnalysis}
-        />
-      )}
-
-      <AnimatePresence>
-        {(processing || submitted) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm"
-          >
-            {processing ? (
-              <div className="flex items-center gap-3 font-black text-orange-600">
-                <span className="loader" /> AI speech/writing scorer processing...
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-4">
-                {[
-                  ["Pronunciation", speechAnalysis?.pronunciation ?? student.scores.Speaking],
-                  ["Fluency", speechAnalysis?.fluency ?? Math.min(98, student.scores.Speaking + 4)],
-                  ["Confidence", speechAnalysis?.confidence ?? student.scores.Speaking],
-                  ["Clarity", speechAnalysis?.clarity ?? student.scores.Reading],
-                ].map(([label, score]) => (
-                  <div key={label} className="rounded-3xl bg-orange-50 p-5">
-                    <p className="text-sm font-bold text-slate-500">{label}</p>
-                    <p className="mt-2 text-3xl font-black text-orange-600">{score}%</p>
-                  </div>
-                ))}
-                {speechAnalysis?.transcript && (
-                  <div className="md:col-span-4 rounded-3xl border border-orange-100 p-4">
-                    <p className="text-sm font-black text-slate-500">Heard by browser mic</p>
-                    <p className="mt-1 text-slate-700">"{speechAnalysis.transcript}"</p>
-                    <p className="mt-2 text-xs font-bold text-orange-700">Pace: {speechAnalysis.pace} words/min</p>
-                  </div>
-                )}
-                {profile === "Foundational" && <Confetti />}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function FoundationalGame({
-  skill,
-  profile,
-  choice,
-  setChoice,
-  submit,
-  onSpeechAnalysis,
-}: {
-  skill: Skill;
-  profile: Profile;
-  choice: string;
-  setChoice: (choice: string) => void;
-  submit: () => void;
-  onSpeechAnalysis: (analysis: SpeechAnalysis) => void;
-}) {
-  const options = skill === "Listening" ? ["⚽ Ball", "🐘 Elephant", "🌞 Sun", "🐶 Dog"] : ["SUN", "CAT", "DOG", "BALL"];
-  const [audioStatus, setAudioStatus] = useState("Tap speaker to hear Bunny.");
-  return (
-    <div className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm">
-      <div className="mb-5 flex items-center gap-3 rounded-3xl bg-orange-50 p-4">
-        <button
-          className="grid h-14 w-14 place-items-center rounded-full bg-orange-500 text-white"
-          onClick={() => {
-            playSoundEffect("click");
-            setAudioStatus("Playing Bunny voice...");
-            speakText(listeningScripts[profile], "en", 0.85, () => setAudioStatus("Audio finished. Choose the answer now."));
-          }}
-        >
-          <Volume2 />
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button className="rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-700" onClick={() => setView("home")}>
+          Back to dashboard
         </button>
-        <div>
-          <p className="font-black">Tap speaker, then choose. Voice instruction is available for pre-readers.</p>
-          <p className="text-sm text-slate-500">
-            {skill === "Writing" ? "Trace with your finger, then copy the word." : "Mascot will clap when you choose correctly."}
-          </p>
-          <p className="mt-1 text-xs font-bold text-orange-700">{audioStatus}</p>
-        </div>
+        <Badge icon={skillIcon(skill)} text={`${labTitle[skill]} · Class ${student.classNumber} · ${profile}`} />
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
-        {options.map((option) => (
-          <motion.button
-            whileTap={{ scale: 0.94 }}
-            whileHover={{ y: -5 }}
-            key={option}
-            className={`min-h-32 rounded-[2rem] border-4 text-2xl font-black ${
-              choice === option ? "border-orange-400 bg-orange-100" : "border-orange-100 bg-white"
-            }`}
-            onClick={() => setChoice(option)}
-          >
-            {option}
-          </motion.button>
-        ))}
-      </div>
-      {(skill === "Speaking" || skill === "Reading") && (
-        <div className="mt-5">
-          <VoiceAnalyzer
-            label={skill === "Speaking" ? "Say this with Bunny" : "Read this sight sentence aloud"}
-            target={speakingTargets[profile]}
-            onAnalysis={onSpeechAnalysis}
-            junior
-          />
-        </div>
-      )}
-      {skill === "Writing" && <WritingAnalyzer target="SUN" junior />}
-      <button className="mt-5 rounded-2xl bg-orange-500 px-6 py-3 font-black text-white" onClick={submit}>
-        Finish Game
-      </button>
-    </div>
-  );
-}
 
-function StructuredPractice({
-  profile,
-  skill,
-  content,
-  choice,
-  setChoice,
-  submit,
-  onSpeechAnalysis,
-}: {
-  profile: Profile;
-  skill: Skill;
-  content: { title: string; prompt: string; task: string; metric: string };
-  choice: string;
-  setChoice: (choice: string) => void;
-  submit: () => void;
-  onSpeechAnalysis: (analysis: SpeechAnalysis) => void;
-}) {
-  const isSerious = profile === "Exam-Track" || profile === "Advanced";
-  return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-      <div className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-2xl font-black">{content.task}</h2>
-          {isSerious && (
-            <span className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">
-              <Clock size={16} /> 12:00
-            </span>
-          )}
-        </div>
-        {skill === "Listening" && <WavePlayer script={listeningScripts[profile]} />}
-        {skill === "Speaking" && (
-          <VoiceAnalyzer
-            label="Speak into the mic for live browser analysis"
-            target={speakingTargets[profile]}
-            onAnalysis={onSpeechAnalysis}
-          />
-        )}
-        {skill === "Reading" && (
-          <>
-            <ReadingPassage advanced={profile === "Advanced"} />
-            <div className="mt-4">
-              <VoiceAnalyzer
-                label="Read the passage aloud"
-                target={profile === "Advanced" ? "Communication is a measurable professional competency" : "The school garden became a cheerful reading corner"}
-                onAnalysis={onSpeechAnalysis}
-              />
-            </div>
-          </>
-        )}
-        {skill === "Writing" && <WritingAnalyzer target={profile === "Advanced" ? "formal report recommendation evidence communication" : "dear friend favourite activity"} />}
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          {["A. Main idea", "B. Supporting detail", "C. Vocabulary clue", "D. Inference"].map((option) => (
-            <button key={option} className={`rounded-2xl border p-4 text-left font-bold ${choice === option ? "border-orange-400 bg-orange-50" : "border-slate-200"}`} onClick={() => setChoice(option)}>
-              {option}
-            </button>
-          ))}
-        </div>
-        <button className="mt-5 rounded-2xl bg-orange-500 px-6 py-3 font-black text-white" onClick={submit}>
-          Submit for AI Score
-        </button>
-      </div>
-      <div className="rounded-[2rem] border border-orange-100 bg-white p-6 shadow-sm">
-        <h3 className="text-xl font-black">Feedback Target</h3>
-        <p className="mt-3 text-slate-600">This activity measures {content.metric}. Scores are pre-baked for demo credibility and revealed after a short processing animation.</p>
-        <div className="mt-5 space-y-3">
-          {["Pronunciation", "Fluency", "Confidence", "Grammar"].map((item, index) => (
-            <div key={item}>
-              <div className="mb-1 flex justify-between text-sm font-bold">
-                <span>{item}</span>
-                <span>{82 + index * 3}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-orange-100">
-                <div className="h-2 rounded-full bg-orange-500" style={{ width: `${82 + index * 3}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {skill === "Speaking" && <SpeakingLab profile={profile} classNumber={student.classNumber} />}
+      {skill === "Listening" && <ListeningLab profile={profile} classNumber={student.classNumber} />}
+      {skill === "Reading" && <ReadingLab profile={profile} classNumber={student.classNumber} />}
+      {skill === "Writing" && <WritingLab profile={profile} classNumber={student.classNumber} />}
     </div>
   );
 }
@@ -1946,235 +1550,8 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
   );
 }
 
-function Mascot({ mood }: { mood: "wave" | "celebrate" }) {
-  return <motion.div animate={{ rotate: mood === "wave" ? [0, -8, 8, 0] : [0, 14, -14, 0], scale: mood === "celebrate" ? [1, 1.08, 1] : 1 }} transition={{ repeat: Infinity, duration: 1.7 }} className="text-8xl">🦊</motion.div>;
-}
-
-function Confetti() {
-  return <div className="pointer-events-none absolute inset-0 overflow-hidden">{Array.from({ length: 16 }, (_, index) => <span key={index} className="confetti" style={{ left: `${5 + index * 6}%`, animationDelay: `${index * 0.04}s` }} />)}</div>;
-}
-
-function WavePlayer({ script }: { script: string }) {
-  const [status, setStatus] = useState("Click play to hear the listening passage.");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
-
-  const play = (nextSpeed = speed) => {
-    playSoundEffect("click");
-    setIsPlaying(true);
-    setStatus("Playing browser TTS audio...");
-    speakText(script, "en", nextSpeed, () => {
-      setIsPlaying(false);
-      setStatus("Audio finished. Answer the question now.");
-    });
-  };
-
-  const stop = () => {
-    stopSpeech();
-    setIsPlaying(false);
-    setStatus("Audio stopped.");
-  };
-
-  return (
-    <div className="rounded-3xl bg-orange-50 p-5">
-      <div className="flex items-center gap-4">
-        <button className="grid h-14 w-14 place-items-center rounded-full bg-orange-500 text-white" onClick={() => (isPlaying ? stop() : play())}><Play /></button>
-        <div className="flex h-14 flex-1 items-center gap-1">
-          {Array.from({ length: 36 }, (_, index) => <span key={index} className="wavebar" style={{ height: `${16 + ((index * 11) % 34)}px` }} />)}
-        </div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button className="rounded-xl bg-white px-3 py-2 text-xs font-black text-orange-700" onClick={stop}>Stop</button>
-        <span className="text-xs font-black text-slate-500">Speed:</span>
-        {[0.75, 1, 1.25, 1.5].map((item) => (
-          <button
-            key={item}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${speed === item ? "bg-orange-500 text-white" : "bg-white text-orange-700"}`}
-            onClick={() => {
-              setSpeed(item);
-              if (isPlaying) play(item);
-            }}
-          >
-            {item}x
-          </button>
-        ))}
-      </div>
-      <p className="mt-3 text-sm font-semibold text-slate-600">{status}</p>
-      <p className="mt-1 text-xs text-slate-500">Text being spoken: "{script}"</p>
-    </div>
-  );
-}
-
-function VoiceAnalyzer({
-  label,
-  target,
-  onAnalysis,
-  junior = false,
-}: {
-  label: string;
-  target: string;
-  onAnalysis: (analysis: SpeechAnalysis) => void;
-  junior?: boolean;
-}) {
-  const [recording, setRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [levels, setLevels] = useState<number[]>(Array.from({ length: 24 }, () => 8));
-  const [analysis, setAnalysis] = useState<SpeechAnalysis | null>(null);
-  const [message, setMessage] = useState("Mic ready. Browser may ask permission.");
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const animationRef = useRef<number | null>(null);
-  const volumeSamplesRef = useRef<number[]>([]);
-  const startedAtRef = useRef<number>(0);
-  const transcriptRef = useRef("");
-
-  const stopAudio = () => {
-    if (animationRef.current) window.cancelAnimationFrame(animationRef.current);
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    void audioContextRef.current?.close();
-    recognitionRef.current?.stop();
-    streamRef.current = null;
-    audioContextRef.current = null;
-    recognitionRef.current = null;
-  };
-
-  useEffect(() => () => stopAudio(), []);
-
-  const start = async () => {
-    try {
-      playSoundEffect("record_start");
-      const SpeechRecognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new AudioContext();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      analyser.fftSize = 128;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-
-      streamRef.current = stream;
-      audioContextRef.current = audioContext;
-      volumeSamplesRef.current = [];
-      transcriptRef.current = "";
-      startedAtRef.current = performance.now();
-      setTranscript("");
-      setAnalysis(null);
-      setRecording(true);
-      setMessage(SpeechRecognition ? "Listening live. Speak clearly into the mic." : "Mic level active. Speech transcript is not supported in this browser.");
-
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "en-IN";
-        recognition.onresult = (event) => {
-          const text = Array.from({ length: event.results.length }, (_, index) => event.results[index][0].transcript).join(" ");
-          transcriptRef.current = text;
-          setTranscript(text);
-        };
-        recognition.onerror = () => setMessage("Speech recognition had trouble, but mic level analysis is still running.");
-        recognition.start();
-        recognitionRef.current = recognition;
-      }
-
-      const draw = () => {
-        analyser.getByteFrequencyData(data);
-        const avg = data.reduce((sum, value) => sum + value, 0) / data.length / 255;
-        volumeSamplesRef.current.push(avg);
-        setLevels((items) => [...items.slice(1), Math.max(8, avg * 72)]);
-        animationRef.current = window.requestAnimationFrame(draw);
-      };
-      draw();
-    } catch {
-      setMessage("Mic permission denied or unavailable. Allow microphone access and try again.");
-    }
-  };
-
-  const stop = () => {
-    playSoundEffect("record_stop");
-    const duration = Math.max(1, (performance.now() - startedAtRef.current) / 1000);
-    const averageVolume =
-      volumeSamplesRef.current.reduce((sum, value) => sum + value, 0) /
-      Math.max(1, volumeSamplesRef.current.length);
-    const text = transcriptRef.current.trim();
-    const result = analyzeSpeech(target, text, duration, averageVolume);
-    setAnalysis(result);
-    onAnalysis(result);
-    playSoundEffect("chime");
-    setRecording(false);
-    setMessage(text ? "Analysis complete from your mic input." : "Mic heard audio level, but no clear English transcript was detected.");
-    stopAudio();
-  };
-
-  return (
-    <div className={`rounded-3xl ${junior ? "bg-orange-50" : "bg-slate-50"} p-5`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-black uppercase tracking-wide text-orange-600">{label}</p>
-          <p className="mt-1 text-lg font-black">Target: "{target}"</p>
-        </div>
-        <button className={`flex items-center gap-2 rounded-full px-5 py-3 font-black text-white ${recording ? "bg-slate-900" : "bg-orange-500"}`} onClick={recording ? stop : start}>
-          <Mic size={18} /> {recording ? "Stop & Analyze" : "Start Mic"}
-        </button>
-      </div>
-      <div className="mt-4 flex h-16 items-end gap-1 rounded-2xl bg-white p-3">
-        {levels.map((level, index) => <span key={index} className="voicebar" style={{ height: `${level}px` }} />)}
-      </div>
-      <p className="mt-3 text-sm font-semibold text-slate-600">{message}</p>
-      {transcript && (
-        <div className="mt-3 rounded-2xl border border-orange-100 bg-white p-3">
-          <p className="text-xs font-black text-slate-500">Live transcript</p>
-          <p className="text-slate-700">"{transcript}"</p>
-        </div>
-      )}
-      {analysis && (
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {[
-            ["Pronunciation", analysis.pronunciation],
-            ["Fluency", analysis.fluency],
-            ["Confidence", analysis.confidence],
-            ["Clarity", analysis.clarity],
-          ].map(([title, value]) => (
-            <div key={title} className="rounded-2xl bg-white p-3">
-              <p className="text-xs font-bold text-slate-500">{title}</p>
-              <p className="text-2xl font-black text-orange-600">{value}%</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ReadingPassage({ advanced }: { advanced: boolean }) {
-  return <div className="rounded-3xl bg-slate-50 p-5 leading-8 text-slate-700">{advanced ? "The editorial argues that communication is no longer a soft skill but a measurable professional competency. Students must analyze evidence, detect tone, and build a precise response." : "The school garden started with five small plants. Every student watered one plant and wrote a note about its growth. Soon the garden became a cheerful reading corner."} <button className="rounded-full bg-orange-100 px-2 py-1 text-xs font-bold text-orange-700">tap-to-define</button></div>;
-}
-
-function WritingAnalyzer({ target, junior = false }: { target: string; junior?: boolean }) {
-  const [text, setText] = useState(junior ? "SUN" : "");
-  const words = normalizeWords(text);
-  const targetWords = normalizeWords(target);
-  const matched = targetWords.filter((word) => words.includes(word)).length;
-  const grammar = clampScore(55 + Math.min(35, words.length * 2) + (/[.!?]$/.test(text.trim()) ? 10 : 0));
-  const vocabulary = clampScore(targetWords.length ? (matched / targetWords.length) * 100 : 0);
-  const structure = clampScore(junior ? (text.trim().length >= 3 ? 92 : 40) : 45 + Math.min(45, words.length));
-  return (
-    <div className="rounded-3xl bg-slate-50 p-5">
-      <textarea
-        className="h-44 w-full rounded-3xl border border-orange-100 bg-white p-5 outline-orange-400"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder={junior ? "Copy the word here" : "Write your answer here for live local analysis"}
-      />
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <Metric title="Words" value={String(words.length)} icon={<PencilLine />} />
-        <Metric title="Grammar" value={`${grammar}%`} icon={<CheckCircle2 />} />
-        <Metric title="Vocabulary" value={`${vocabulary}%`} icon={<BookOpen />} />
-        <Metric title="Structure" value={`${structure}%`} icon={<BarChart3 />} />
-      </div>
-    </div>
-  );
+function AiTeacher({ mood }: { mood: "wave" | "celebrate" }) {
+  return <motion.div animate={{ rotate: mood === "wave" ? [0, -4, 4, 0] : [0, 8, -8, 0], scale: mood === "celebrate" ? [1, 1.06, 1] : 1 }} transition={{ repeat: Infinity, duration: 1.7 }} className="text-8xl">🤖</motion.div>;
 }
 
 function StudentDrawer({ item }: { item: SessionStudent }) {
