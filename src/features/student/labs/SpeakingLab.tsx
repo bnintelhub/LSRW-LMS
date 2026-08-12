@@ -10,7 +10,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
+import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
 import {
   evaluateSpeechAccuracy,
   getActiveVoiceLabel,
@@ -18,7 +18,8 @@ import {
   speakText,
   stopSpeech,
   type EvaluationResult,
-} from "../../lib/speech";
+  type WordAnalysis,
+} from "../../../lib/speech";
 
 const DEFAULT_SENTENCES: Record<string, string[]> = {
   Foundational: [
@@ -277,7 +278,7 @@ export function SpeakingLab({ profile, classNumber, onEvaluationComplete }: Prop
             </div>
             <p className="mb-3 text-xs text-slate-500">Heard: "{evaluation.transcribedText}"</p>
             <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              {evaluation.wordAnalysis.map((item, idx) => (
+              {evaluation.wordAnalysis.map((item: WordAnalysis, idx: number) => (
                 <button
                   key={`${item.word}-${idx}`}
                   onClick={() => {

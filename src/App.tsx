@@ -24,16 +24,13 @@ import {
   MonitorDot,
   PencilLine,
   Play,
-  RefreshCcw,
   School,
-  Search,
   ShieldCheck,
   Sparkles,
   Star,
   Upload,
   UserRound,
   Users,
-  Volume2,
 } from "lucide-react";
 import {
   flexRender,
@@ -334,122 +331,108 @@ const lessonCopy: Record<
 > = {
   Foundational: {
     Listening: {
-      title: "Pop the Sound Bubble",
-      prompt: "Listen to the clear AI teacher voice and pop the matching picture bubble.",
-      task: "Audio says: 'This is a red ball'",
+      title: "Listening Studio",
+      prompt: "Clear adult AI voice playback with picture comprehension.",
+      task: "Junior listening clip",
       metric: "engagement",
     },
     Speaking: {
-      title: "AI Repeat Practice",
-      prompt: "Listen to the clear AI voice and repeat: This is a ball.",
-      task: "Record a 5 second answer and get instant speech feedback.",
+      title: "AI Speaking Lab",
+      prompt: "Listen target sentence, record, and get pronunciation scores.",
+      task: "Repeat practice",
       metric: "pronunciation",
     },
     Reading: {
-      title: "Picture Story Trail",
-      prompt: "Match the picture card with the sight word.",
-      task: "sun, ball, dog, cat",
+      title: "Reading & WPM",
+      prompt: "Tap words for pronunciation and dictionary.",
+      task: "Sight-word passage",
       metric: "sight words",
     },
     Writing: {
-      title: "Trace and Shine",
-      prompt: "Trace the word and copy it once.",
-      task: "Trace: SUN",
+      title: "Writing AI Checker",
+      prompt: "Copy and check with live grammar suggestions.",
+      task: "Trace & copy",
       metric: "letter formation",
     },
   },
   Elementary: {
     Listening: {
-      title: "Dialogue Detective",
-      prompt: "Listen to a short school announcement and fill the missing words.",
-      task: "The science club meets on Friday after lunch.",
+      title: "Listening Studio",
+      prompt: "School announcements with MCQ and dictation quiz.",
+      task: "Announcement drill",
       metric: "detail capture",
     },
     Speaking: {
-      title: "One-Minute Picture Talk",
-      prompt: "Describe the classroom picture in 4 clear sentences.",
-      task: "Use connectors: first, next, finally.",
+      title: "AI Speaking Lab",
+      prompt: "Record classroom sentences for fluency scoring.",
+      task: "Guided speaking",
       metric: "fluency",
     },
     Reading: {
-      title: "Story Paragraph Lab",
-      prompt: "Read the passage and answer vocabulary-in-context questions.",
-      task: "A 180-word story about a school garden project.",
+      title: "Reading & WPM",
+      prompt: "Timed reading with click-to-speak dictionary.",
+      task: "Garden paragraph",
       metric: "comprehension",
     },
     Writing: {
-      title: "Friendly Letter Builder",
-      prompt: "Write a short paragraph or informal letter with correct punctuation.",
-      task: "Write to a friend about your favourite activity.",
+      title: "Writing AI Checker",
+      prompt: "Friendly letter with AI grammar alerts.",
+      task: "Letter writing",
       metric: "grammar",
     },
   },
   "Exam-Track": {
     Listening: {
-      title: "Board Pattern Listening",
-      prompt: "Take notes from an extended audio passage and answer timed MCQs.",
-      task: "Lecture excerpt: conserving water in cities.",
+      title: "Listening Studio",
+      prompt: "Board-pattern podcast with speed control and quiz.",
+      task: "Climate podcast",
       metric: "accuracy under time",
     },
     Speaking: {
-      title: "JAM Practice",
-      prompt: "Speak for one minute on the topic without repetition.",
-      task: "Topic: Technology in student life.",
+      title: "AI Speaking Lab",
+      prompt: "Exam-style sentence drills with phonetic breakdown.",
+      task: "JAM / fluency",
       metric: "confidence",
     },
     Reading: {
-      title: "Unseen Passage Drill",
-      prompt: "Read a passage and answer inference, vocabulary, and factual questions.",
-      task: "Board-style passage with 8 questions.",
+      title: "Reading & WPM",
+      prompt: "Unseen passage, timer, and CEFR speed benchmark.",
+      task: "Unseen drill",
       metric: "speed and accuracy",
     },
     Writing: {
-      title: "Analytical Paragraph",
-      prompt: "Write a structured response using the given data points.",
-      task: "Compare online and library reading habits.",
+      title: "Writing AI Checker",
+      prompt: "Analytical paragraph with accept-fix suggestions.",
+      task: "Analytical writing",
       metric: "structure",
     },
   },
   Advanced: {
     Listening: {
-      title: "Lecture Note Benchmark",
-      prompt: "Summarize a professional talk and identify the speaker's position.",
-      task: "Talk excerpt: ethical AI in education.",
+      title: "Listening Studio",
+      prompt: "Professional lecture excerpt with comprehension quiz.",
+      task: "Ethical AI talk",
       metric: "summarization",
     },
     Speaking: {
-      title: "GD / Interview Studio",
-      prompt: "Prepare a concise opening statement for a group discussion.",
-      task: "Topic: Should internships be compulsory?",
+      title: "AI Speaking Lab",
+      prompt: "Interview/GD sentences with live mic analysis.",
+      task: "GD / interview",
       metric: "executive presence",
     },
     Reading: {
-      title: "Editorial Analysis",
-      prompt: "Analyze an editorial and separate argument, evidence, and tone.",
-      task: "Opinion passage on climate policy.",
+      title: "Reading & WPM",
+      prompt: "Advanced passage, WPM timer, instant word pronunciation.",
+      task: "Editorial reading",
       metric: "critical reasoning",
     },
     Writing: {
-      title: "Formal Report Desk",
-      prompt: "Draft a formal report with recommendation and evidence.",
-      task: "Report on improving communication in school clubs.",
+      title: "Writing AI Checker",
+      prompt: "Persuasive essay with real-time grammar panel.",
+      task: "Formal essay",
       metric: "professional writing",
     },
   },
-};
-
-const speakingTargets: Record<Profile, string> = {
-  Foundational: "This is a ball",
-  Elementary: "This classroom is bright and friendly",
-  "Exam-Track": "Technology helps students learn when it is used with discipline",
-  Advanced: "Internships should build communication skills and professional confidence",
-};
-
-const listeningScripts: Record<Profile, string> = {
-  Foundational: "This is a red ball. Tap the ball bubble.",
-  Elementary: "The science club meets on Friday after lunch in the school library.",
-  "Exam-Track": "Urban water conservation needs planning, citizen participation and regular monitoring.",
-  Advanced: "Ethical artificial intelligence in education requires transparency, consent and measurable learning outcomes.",
 };
 
 function scoreFor(classNumber: number, roll: number, skill: Skill) {
@@ -575,6 +558,15 @@ function App() {
     students: initialStudents,
   });
   const accounts = useMemo(() => createAccounts(state.students), [state.students]);
+
+  useEffect(() => {
+    // Preload browser voices so Listen Target Sentence works on first click
+    if (!("speechSynthesis" in window)) return;
+    const warm = () => window.speechSynthesis.getVoices();
+    warm();
+    window.speechSynthesis.addEventListener("voiceschanged", warm);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", warm);
+  }, []);
 
   if (!state.session) {
     return <LoginPage accounts={accounts} students={state.students} dispatch={dispatch} />;
