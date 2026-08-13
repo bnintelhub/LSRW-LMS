@@ -324,6 +324,7 @@ function LoginPage({
   const filtered = accounts.filter((account) => account.role === role);
   const [selected, setSelected] = useState<Account>(filtered[0]);
   const [loginError, setLoginError] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     setSelected(accounts.find((account) => account.role === role)!);
@@ -367,112 +368,210 @@ function LoginPage({
     isClassSessionActive(selectedStudent.classNumber, selectedStudent.section);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fed7aa,transparent_34%),linear-gradient(135deg,#fff,rgba(255,247,237,.95))] px-6 py-8">
-      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_.95fr]">
-        <section className="panel-card p-8">
-          <ChipBadge icon={<School size={18} />} text="School English Language Lab" />
-          <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950 md:text-6xl">
-            LSRW lab demo for every class, every role, every period.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-slate-600">
-            Frontend-only client demo with hardcoded multi-role login, class-adaptive
-            student practice, Excel onboarding, credential export and live teacher monitoring.
-          </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              ["12", "student class logins"],
-              ["264", "mock students"],
-              ["16", "profile LSRW screens"],
-            ].map(([value, label]) => (
-              <div key={label} className="rounded-3xl bg-orange-50 p-5">
-                <div className="text-3xl font-black text-orange-600">{value}</div>
-                <div className="text-sm font-semibold text-slate-600">{label}</div>
-              </div>
-            ))}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fed7aa,transparent_34%),linear-gradient(135deg,#fff,rgba(255,247,237,.95))]">
+      <header className="border-b border-orange-100/80 bg-white/80 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-200">
+              <School size={21} />
+            </div>
+            <div>
+              <p className="font-black text-slate-950">School English Language Lab</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-orange-600">Listen · Speak · Read · Write</p>
+            </div>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <Feature icon={<Sparkles />} title="Junior games" text="Clear AI teacher voice, bubbles, matching cards and reward bursts for Classes 1-3." />
-            <Feature icon={<MonitorDot />} title="Live lab period" text="Teacher tiles update status and progress every few seconds." />
-            <Feature icon={<FileSpreadsheet />} title="Real Excel flow" text="Download sample, upload rows, validate, confirm and export credentials." />
-            <Feature icon={<BarChart3 />} title="Consistent analytics" text="Scores agree across student dashboard, teacher drawer and reports." />
-          </div>
-        </section>
+          <button
+            className="rounded-xl bg-orange-500 px-5 py-2.5 font-black text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+            onClick={() => setShowLogin(true)}
+          >
+            Login
+          </button>
+        </div>
+      </header>
 
-        <section className="panel-card">
-          <div className="flex gap-2 rounded-2xl bg-orange-50 p-2">
-            {(["admin", "teacher", "student"] as Role[]).map((item) => (
+      <section className="mx-auto max-w-7xl px-6 py-12 md:py-20">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <ChipBadge icon={<School size={18} />} text="School English Language Lab" />
+            <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[1.08] text-slate-950 md:text-7xl">
+              Build confident English communicators.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
+              One class-adaptive language lab for Classes 1–12—junior games, structured
+              LSRW practice, teacher-led sessions, and meaningful progress reports.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
               <button
-                className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold capitalize transition ${
-                  role === item ? "bg-orange-500 text-white shadow-lg shadow-orange-200" : "text-slate-600"
-                }`}
-                key={item}
-                onClick={() => setRole(item)}
+                className="flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3.5 font-black text-white shadow-xl shadow-orange-200 transition hover:-translate-y-0.5 hover:bg-orange-600"
+                onClick={() => setShowLogin(true)}
               >
-                {item === "admin" ? "School Admin" : item}
+                Login to Language Lab <ChevronRight size={18} />
               </button>
-            ))}
-          </div>
-
-          <div className="mt-6 rounded-3xl border border-slate-100 p-5">
-            <p className="text-sm font-bold uppercase tracking-wide text-orange-600">Login form</p>
-            {role === "student" && selectedStudent && (
-              <div
-                className={`mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold ${
-                  classSessionLive
-                    ? "bg-green-50 text-green-700"
-                    : "bg-amber-50 text-amber-800"
-                }`}
+              <a
+                className="rounded-2xl border border-orange-200 bg-white px-6 py-3.5 font-black text-orange-700"
+                href="#features"
               >
-                <MonitorDot size={16} />
-                {classSessionLive
-                  ? `Class ${selectedStudent.classNumber}-${selectedStudent.section} session is live — you can log in.`
-                  : `Waiting for teacher to start Class ${selectedStudent.classNumber}-${selectedStudent.section} session.`}
-              </div>
-            )}
-            {loginError && (
-              <div className="mt-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <span>{loginError}</span>
-              </div>
-            )}
-            <label className="mt-4 block text-sm font-semibold text-slate-600">User ID</label>
-            <input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-orange-400" value={selected?.userId ?? ""} readOnly />
-            <label className="mt-4 block text-sm font-semibold text-slate-600">Password</label>
-            <input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-orange-400" value={selected?.password ?? ""} readOnly />
-            <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-lg shadow-orange-200" onClick={() => submit()}>
-              Login to Demo <ChevronRight size={18} />
-            </button>
-          </div>
-
-          <div className="mt-6">
-            <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Quick Demo Login</p>
-            <div className="max-h-[420px] space-y-2 overflow-auto pr-2">
-              {filtered.map((account) => (
-                <button
-                  key={account.id}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
-                    selected?.id === account.id
-                      ? "border-orange-300 bg-orange-50"
-                      : "border-slate-100 hover:border-orange-200"
-                  }`}
-                  onClick={() => {
-                    setSelected(account);
-                    submit(account);
-                  }}
-                >
-                  <span>
-                    <span className="block font-bold">{account.label}</span>
-                    <span className="text-xs text-slate-500">
-                      {account.userId} / {account.password}
-                    </span>
-                  </span>
-                  <Play size={16} className="text-orange-500" />
-                </button>
+                Explore features
+              </a>
+            </div>
+            <div className="mt-10 grid max-w-2xl grid-cols-3 gap-3">
+              {[
+                ["12", "Classes"],
+                ["264", "Students"],
+                ["4", "LSRW skills"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-2xl border border-orange-100 bg-white/80 p-4 shadow-sm">
+                  <div className="text-2xl font-black text-orange-600 md:text-3xl">{value}</div>
+                  <div className="text-xs font-bold text-slate-500 md:text-sm">{label}</div>
+                </div>
               ))}
             </div>
           </div>
-        </section>
-      </div>
+
+          <div className="relative">
+            <div className="absolute -inset-5 rounded-[3rem] bg-gradient-to-br from-orange-200/70 to-amber-100/20 blur-2xl" />
+            <div className="relative rounded-[2.5rem] border border-white/80 bg-white/90 p-7 shadow-2xl shadow-orange-200/50">
+              <div className="rounded-[2rem] bg-gradient-to-br from-orange-500 to-amber-400 p-7 text-white">
+                <p className="text-xs font-black uppercase tracking-[.2em] text-orange-100">Today in the lab</p>
+                <h2 className="mt-3 text-3xl font-black">Every learner gets the right practice.</h2>
+                <div className="mt-7 grid grid-cols-2 gap-3">
+                  {[
+                    ["🎧", "Listening"],
+                    ["🎙️", "Speaking"],
+                    ["📖", "Reading"],
+                    ["✍️", "Writing"],
+                  ].map(([emoji, label]) => (
+                    <div key={label} className="rounded-2xl bg-white/15 p-4 backdrop-blur">
+                      <span className="text-2xl">{emoji}</span>
+                      <p className="mt-2 font-black">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-5 flex items-center justify-between rounded-2xl bg-orange-50 p-4">
+                <div>
+                  <p className="font-black text-slate-900">Teacher-led lab sessions</p>
+                  <p className="text-sm text-slate-500">Attendance, live progress and reports</p>
+                </div>
+                <MonitorDot className="text-orange-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="border-y border-slate-100 bg-white px-6 py-14">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 max-w-2xl">
+            <p className="text-sm font-black uppercase tracking-widest text-orange-600">One connected platform</p>
+            <h2 className="mt-2 text-3xl font-black text-slate-950 md:text-4xl">Made for students, teachers and schools.</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Feature icon={<Sparkles />} title="Junior games" text="Voice-first games, phonics, stories and rewards for young learners." />
+            <Feature icon={<MonitorDot />} title="Live lab period" text="Teacher-led sessions with attendance and live student activity." />
+            <Feature icon={<FileSpreadsheet />} title="School-ready setup" text="Excel onboarding, credentials, teacher allotments and reports." />
+            <Feature icon={<BarChart3 />} title="Consistent progress" text="Scores, XP, badges, tasks and analytics stay connected." />
+          </div>
+        </div>
+      </section>
+
+      <footer className="px-6 py-8 text-center text-sm font-semibold text-slate-500">
+        School English Language Lab · Classes 1–12
+      </footer>
+
+      {showLogin && (
+        <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-sm sm:p-5">
+          <button
+            className="absolute inset-0 cursor-default"
+            aria-label="Close login"
+            onClick={() => setShowLogin(false)}
+          />
+          <section className="relative z-10 my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white p-5 shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] sm:p-6 md:p-8">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-orange-600">Welcome back</p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">Login to Language Lab</h2>
+              </div>
+              <button
+                className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 font-black text-slate-600"
+                onClick={() => setShowLogin(false)}
+                aria-label="Close login"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex gap-2 rounded-2xl bg-orange-50 p-2">
+              {(["admin", "teacher", "student"] as Role[]).map((item) => (
+                <button
+                  className={`flex-1 rounded-xl px-3 py-3 text-sm font-bold capitalize transition ${
+                    role === item ? "bg-orange-500 text-white shadow-lg shadow-orange-200" : "text-slate-600"
+                  }`}
+                  key={item}
+                  onClick={() => setRole(item)}
+                >
+                  {item === "admin" ? "School Admin" : item}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-slate-100 p-4 sm:p-5">
+              <p className="text-sm font-bold uppercase tracking-wide text-orange-600">Login form</p>
+              {role === "student" && selectedStudent && (
+                <div
+                  className={`mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold ${
+                    classSessionLive ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <MonitorDot size={16} />
+                  {classSessionLive
+                    ? `Class ${selectedStudent.classNumber}-${selectedStudent.section} session is live.`
+                    : `Waiting for Class ${selectedStudent.classNumber}-${selectedStudent.section} session.`}
+                </div>
+              )}
+              {loginError && (
+                <div className="mt-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+              <label className="mt-4 block text-sm font-semibold text-slate-600">User ID</label>
+              <input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-orange-400" value={selected?.userId ?? ""} readOnly />
+              <label className="mt-4 block text-sm font-semibold text-slate-600">Password</label>
+              <input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-orange-400" value={selected?.password ?? ""} readOnly />
+              <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 py-3 font-black text-white shadow-lg shadow-orange-200" onClick={() => submit()}>
+                Login to Demo <ChevronRight size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 pb-1">
+              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Quick Demo Login</p>
+              <div className="space-y-2">
+                {filtered.map((account) => (
+                  <button
+                    key={account.id}
+                    className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${
+                      selected?.id === account.id
+                        ? "border-orange-300 bg-orange-50"
+                        : "border-slate-100 hover:border-orange-200"
+                    }`}
+                    onClick={() => {
+                      setSelected(account);
+                      submit(account);
+                    }}
+                  >
+                    <span>
+                      <span className="block font-bold">{account.label}</span>
+                      <span className="text-xs text-slate-500">{account.userId} / {account.password}</span>
+                    </span>
+                    <Play size={16} className="text-orange-500" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
       <Chatbot
         role="guest"
         studentClass={
