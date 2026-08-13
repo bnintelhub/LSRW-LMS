@@ -6,7 +6,7 @@ import { playSoundEffect, speakText, stopSpeech } from "../../../lib/speech";
 import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
 import { evaluateSpeechAccuracy } from "../../../lib/speech";
 
-type Props = { classNumber: number };
+type Props = { classNumber: number; onComplete?: (score: number) => void };
 
 function celebrate() {
   playSoundEffect("chime");
@@ -82,7 +82,7 @@ const LISTEN_SETS: Record<number, { prompt: string; answer: string; options: { l
   },
 };
 
-export function ListeningGame({ classNumber }: Props) {
+export function ListeningGame({ classNumber, onComplete }: Props) {
   const set = LISTEN_SETS[classNumber] ?? LISTEN_SETS[1];
   const [choice, setChoice] = useState("");
   const [done, setDone] = useState(false);
@@ -104,6 +104,7 @@ export function ListeningGame({ classNumber }: Props) {
       setDone(true);
       celebrate();
       setStatus("Correct! Great listening.");
+      onComplete?.(100);
     } else {
       playSoundEffect("click");
       setStatus("Try again — listen once more.");
@@ -162,7 +163,7 @@ const SPEAK_SETS: Record<number, string[]> = {
   4: ["My name is Aarav.", "I study in class four.", "I like reading stories."],
 };
 
-export function SpeakingGame({ classNumber }: Props) {
+export function SpeakingGame({ classNumber, onComplete }: Props) {
   const sentences = SPEAK_SETS[classNumber] ?? SPEAK_SETS[1];
   const [index, setIndex] = useState(0);
   const target = sentences[index];
@@ -192,6 +193,7 @@ export function SpeakingGame({ classNumber }: Props) {
     const spoken = stopListening() || transcript;
     const result = evaluateSpeechAccuracy(spoken, target, 4);
     setScore(result.overallScore);
+    onComplete?.(result.overallScore);
     if (result.overallScore >= 70) {
       celebrate();
       setStatus(`Nice! Score ${result.overallScore}%`);
@@ -278,7 +280,7 @@ const READ_SETS: Record<number, Pair[]> = {
   ],
 };
 
-export function ReadingGame({ classNumber }: Props) {
+export function ReadingGame({ classNumber, onComplete }: Props) {
   const pairs = READ_SETS[classNumber] ?? READ_SETS[1];
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
@@ -291,11 +293,13 @@ export function ReadingGame({ classNumber }: Props) {
   const tryMatch = (wordId: string | null, emojiId: string | null) => {
     if (!wordId || !emojiId) return;
     if (wordId === emojiId) {
-      setMatched((m) => [...m, wordId]);
+      const nextMatched = [...matched, wordId];
+      setMatched(nextMatched);
       celebrate();
       setMessage("Match!");
       const pair = pairs.find((p) => p.id === wordId);
       if (pair) speakText(pair.word, { rate: 0.9 });
+      if (nextMatched.length === pairs.length) onComplete?.(100);
     } else {
       playSoundEffect("click");
       setMessage("Not a match — try again.");
@@ -388,7 +392,7 @@ const WRITE_SETS: Record<number, { target: string; tiles: string[]; hint: string
   },
 };
 
-export function WritingGame({ classNumber }: Props) {
+export function WritingGame({ classNumber, onComplete }: Props) {
   const set = WRITE_SETS[classNumber] ?? WRITE_SETS[1];
   const [built, setBuilt] = useState<string[]>([]);
   const [typed, setTyped] = useState("");
@@ -404,6 +408,7 @@ export function WritingGame({ classNumber }: Props) {
   const check = () => {
     if (correct) {
       celebrate();
+      onComplete?.(100);
     } else {
       playSoundEffect("click");
       speakText(`Try again. The answer is ${set.target}`, { rate: 0.9 });

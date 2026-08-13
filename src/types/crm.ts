@@ -61,16 +61,27 @@ export type TeacherAllotment = {
   allotted: { classNumber: number; section: "A" | "B" }[];
 };
 
+export type ActiveLabSession = {
+  classNumber: number;
+  section: "A" | "B";
+  teacherId: string;
+  teacherName: string;
+  startedAt: string;
+  date: string;
+};
+
 export type CrmState = {
   tasks: DailyTask[];
   reports: DailyReport[];
   sessions: LabSessionRecord[];
   allotments: TeacherAllotment[];
+  activeLabSessions: ActiveLabSession[];
 };
 
 export type CrmAction =
   | { type: "hydrate"; state: CrmState }
   | { type: "setDraftPack"; tasks: DailyTask[] }
+  | { type: "addDraftTask"; task: DailyTask }
   | { type: "updateDraftTask"; taskId: string; patch: Partial<DailyTask> }
   | { type: "removeDraftTask"; taskId: string }
   | { type: "publishPack"; date: string; classNumber: number; section: "A" | "B" | "ALL" }
@@ -78,4 +89,6 @@ export type CrmAction =
   | { type: "upsertReport"; report: DailyReport }
   | { type: "addRemark"; studentId: string; date: string; remark: string }
   | { type: "addSession"; session: LabSessionRecord }
-  | { type: "setAllotments"; allotments: TeacherAllotment[] };
+  | { type: "setAllotments"; allotments: TeacherAllotment[] }
+  | { type: "startLabSession"; session: ActiveLabSession }
+  | { type: "endLabSession"; classNumber: number; section: "A" | "B" };

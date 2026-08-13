@@ -6,7 +6,7 @@ import {
   useReducer,
   type ReactNode,
 } from "react";
-import type { CrmAction, CrmState, DailyReport, DailyTask, Scores } from "../types/crm";
+import type { CrmAction, CrmState, DailyReport, DailyTask, Scores, ActiveLabSession } from "../types/crm";
 import { loadCrmState, saveCrmState } from "../lib/persist";
 
 function crmReducer(state: CrmState, action: CrmAction): CrmState {
@@ -28,6 +28,8 @@ function crmReducer(state: CrmState, action: CrmAction): CrmState {
       );
       return { ...state, tasks: [...kept, ...incoming] };
     }
+    case "addDraftTask":
+      return { ...state, tasks: [...state.tasks, action.task] };
     case "updateDraftTask":
       return {
         ...state,
@@ -103,6 +105,24 @@ function crmReducer(state: CrmState, action: CrmAction): CrmState {
       return { ...state, sessions: [action.session, ...state.sessions].slice(0, 50) };
     case "setAllotments":
       return { ...state, allotments: action.allotments };
+    case "startLabSession": {
+      const filtered = state.activeLabSessions.filter(
+        (s) =>
+          !(
+            s.classNumber === action.session.classNumber &&
+            s.section === action.session.section &&
+            s.date === action.session.date
+          ),
+      );
+      return { ...state, activeLabSessions: [...filtered, action.session] };
+    }
+    case "endLabSession":
+      return {
+        ...state,
+        activeLabSessions: state.activeLabSessions.filter(
+          (s) => !(s.classNumber === action.classNumber && s.section === action.section),
+        ),
+      };
     default:
       return state;
   }
@@ -122,6 +142,8 @@ type CrmContextValue = {
     section: "A" | "B" | "ALL";
   }) => DailyTask[];
   reportFor: (studentId: string, date: string) => DailyReport | undefined;
+  isClassSessionActive: (classNumber: number, section: "A" | "B", date?: string) => boolean;
+  getActiveSession: (classNumber: number, section: "A" | "B") => ActiveLabSession | undefined;
 };
 
 const CrmContext = createContext<CrmContextValue | null>(null);
@@ -155,6 +177,16 @@ export function CrmProvider({ children }: { children: ReactNode }) {
         ),
       reportFor: (studentId, date) =>
         state.reports.find((r) => r.studentId === studentId && r.date === date),
+      isClassSessionActive: (classNumber, section, date) => {
+        const today = date ?? new Date().toISOString().slice(0, 10);
+        return state.activeLabSessions.some(
+          (s) => s.classNumber === classNumber && s.section === section && s.date === today,
+        );
+      },
+      getActiveSession: (classNumber, section) =>
+        state.activeLabSessions.find(
+          (s) => s.classNumber === classNumber && s.section === section,
+        ),
     }),
     [state],
   );

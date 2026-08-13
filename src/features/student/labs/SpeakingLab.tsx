@@ -10,6 +10,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { getSpeakingSentences } from "../../../data/speakingPrompts";
 import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
 import {
   evaluateSpeechAccuracy,
@@ -21,48 +22,14 @@ import {
   type WordAnalysis,
 } from "../../../lib/speech";
 
-const DEFAULT_SENTENCES: Record<string, string[]> = {
-  Foundational: [
-    "This is a ball.",
-    "I see a red sun.",
-    "The dog is happy.",
-    "Good morning teacher.",
-    "I like my school.",
-  ],
-  Elementary: [
-    "The science club meets on Friday after lunch.",
-    "Our classroom is bright and friendly.",
-    "I introduce myself clearly and politely.",
-    "Reading every day improves vocabulary.",
-    "We write short paragraphs with correct punctuation.",
-  ],
-  "Exam-Track": [
-    "Technology helps students learn when used with discipline.",
-    "Water conservation needs planning and citizen participation.",
-    "Effective communication requires active listening and clear speech.",
-    "Board exam success depends on accuracy under timed conditions.",
-    "Unseen passages test both vocabulary and inference skills.",
-  ],
-  Advanced: [
-    "Artificial intelligence is transforming digital education across Indian language labs.",
-    "Internships should build communication skills and professional confidence.",
-    "Ethical AI in education requires transparency, consent and measurable outcomes.",
-    "Group discussion practice prepares students for competitive interviews.",
-    "Formal reports must present evidence before recommendations.",
-  ],
-};
-
 type Props = {
   profile: string;
   classNumber: number;
   onEvaluationComplete?: (result: EvaluationResult) => void;
 };
 
-export function SpeakingLab({ profile, classNumber, onEvaluationComplete }: Props) {
-  const sentences = useMemo(
-    () => DEFAULT_SENTENCES[profile] ?? DEFAULT_SENTENCES.Elementary,
-    [profile],
-  );
+export function SpeakingLab({ classNumber, onEvaluationComplete }: Props) {
+  const sentences = useMemo(() => getSpeakingSentences(classNumber), [classNumber]);
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const currentSentence = sentences[sentenceIndex];
   const { isListening, transcript, isSupported, startListening, stopListening, resetTranscript } =
@@ -158,7 +125,7 @@ export function SpeakingLab({ profile, classNumber, onEvaluationComplete }: Prop
   };
 
   return (
-    <div className="space-y-5 rounded-[1.75rem] border border-orange-100 bg-white p-5 shadow-sm md:p-6">
+    <div className="space-y-5 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-6">
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 p-5 text-white md:flex-row md:items-center md:justify-between">
         <div>
           <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold">

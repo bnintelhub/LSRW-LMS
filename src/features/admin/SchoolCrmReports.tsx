@@ -11,7 +11,10 @@ import {
 } from "recharts";
 import { Download, School } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
+import { useAppStore } from "../../context/AppStoreContext";
 import { todayISO } from "../../lib/aiTaskGenerator";
+import { dateInTerm } from "./AcademicYear";
+import { allotmentsFromTeachers } from "../../lib/persist";
 
 type StudentLite = {
   id: string;
@@ -29,6 +32,7 @@ function avgScores(s: StudentLite["scores"]) {
 
 export function SchoolCrmReports({ students }: Props) {
   const { state, dispatch } = useCrm();
+  const { completions, school, teachers, upsertTeacher } = useAppStore();
   const date = todayISO();
   const [exportClass, setExportClass] = useState(6);
 
@@ -39,18 +43,33 @@ export function SchoolCrmReports({ students }: Props) {
       const published = state.tasks.filter(
         (t) => t.date === date && t.classNumber === classNumber && t.status === "published",
       );
-      if (!classStudents.length || !published.length) {
+      if (!classStudents.length) {
         return { className: `C${classNumber}`, completion: 0, tasks: published.length };
       }
-      const done = published.reduce(
-        (sum, t) =>
-          sum + t.completedBy.filter((id) => classStudents.some((s) => s.id === id)).length,
-        0,
-      );
-      const completion = Math.round((done / (published.length * classStudents.length)) * 100);
-      return { className: `C${classNumber}`, completion, tasks: published.length };
+      if (published.length) {
+        const done = published.reduce(
+          (sum, t) =>
+            sum + t.completedBy.filter((id) => classStudents.some((s) => s.id === id)).length,
+          0,
+        );
+        return {
+          className: `C${classNumber}`,
+          completion: Math.round((done / (published.length * classStudents.length)) * 100),
+          tasks: published.length,
+        };
+      }
+      const practiced = new Set(
+        completions.filter((c) => c.date === date && classStudents.some((s) => s.id === c.studentId)).map((c) => c.studentId),
+      ).size;
+      return {
+        className: `C${classNumber}`,
+        completion: Math.round((practiced / classStudents.length) * 100),
+        tasks: 0,
+      };
     });
-  }, [students, state.tasks, date]);
+  }, [students, state.tasks, date, completions]);
+
+  const sessions = state.sessions.filter((s) => dateInTerm(s.date, school.term));
 
   const exportDaily = () => {
     const classStudents = students.filter((s) => s.classNumber === exportClass);
@@ -78,61 +97,79 @@ export function SchoolCrmReports({ students }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
-        <p className="text-xs font-black uppercase text-orange-600">School Lab CRM</p>
-        <h1 className="mt-2 text-3xl font-black">Government School Daily Oversight</h1>
-        <p className="mt-2 text-slate-600">
-          Class completion heatmap, teacher allotments, lab session history, and Excel daily export.
+      <div className="panel-card">
+        <p className="text-xs font-black uppercase tracking-wider text-orange-600">{school.name} · {school.academicYear} · Term {school.term}</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight">School Daily Oversight</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          Class completion heatmap from published tasks (or lab practice if no pack), teacher allotments, and session history for the selected term.
         </p>
       </div>
 
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-black">Today's Class Completion Heatmap · {date}</h2>
-        <div className="h-80">
+      <div className="panel-card">
+        <h2 className="mb-4 text-lg font-black">Today's Class Completion Heatmap · {date}</h2>
+        <div className="h-80 rounded-xl bg-[#faf8f5] p-3">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={heatmap}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="className" />
-              <YAxis domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e8e4dc" />
+              <XAxis dataKey="className" tick={{ fill: "#64748b", fontSize: 12 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: "#64748b", fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="completion" fill="#f97316" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="completion" fill="#f97316" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 flex items-center gap-2 text-xl font-black">
+        <div className="panel-card">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-black">
             <School className="h-5 w-5 text-orange-600" /> Teacher Allotments
           </h2>
           <div className="space-y-3">
             {state.allotments.map((a) => (
-              <div key={a.teacherId} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="font-black">{a.teacherName}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {a.allotted.map((x) => `Class ${x.classNumber}-${x.section}`).join(" · ")}
-                </p>
+              <div key={a.teacherId} className="nested-card">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-500 text-sm font-black text-white">
+                    {a.teacherName.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-black text-slate-900">{a.teacherName}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {a.allotted.map((x) => (
+                        <span key={`${a.teacherId}-chip-${x.classNumber}-${x.section}`} className="stat-chip">
+                          Class {x.classNumber}-{x.section}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">Reassign classes</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {a.allotted.map((x) => (
                     <select
                       key={`${a.teacherId}-${x.classNumber}-${x.section}`}
-                      className="rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-bold"
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700"
                       value={`${x.classNumber}-${x.section}`}
                       onChange={(e) => {
                         const [c, s] = e.target.value.split("-");
-                        const next = state.allotments.map((item) => {
-                          if (item.teacherId !== a.teacherId) return item;
-                          return {
-                            ...item,
-                            allotted: item.allotted.map((slot) =>
+                        const teacher = teachers.find((item) => item.id === a.teacherId);
+                        if (teacher) {
+                          const nextTeacher = {
+                            ...teacher,
+                            allotted: teacher.allotted.map((slot) =>
                               slot.classNumber === x.classNumber && slot.section === x.section
                                 ? { classNumber: Number(c), section: s as "A" | "B" }
                                 : slot,
                             ),
                           };
-                        });
-                        dispatch({ type: "setAllotments", allotments: next });
+                          upsertTeacher(nextTeacher);
+                          dispatch({
+                            type: "setAllotments",
+                            allotments: allotmentsFromTeachers(
+                              teachers.map((item) => (item.id === nextTeacher.id ? nextTeacher : item)),
+                            ),
+                          });
+                        }
                       }}
                     >
                       {Array.from({ length: 12 }, (_, i) => i + 1).flatMap((cls) =>
@@ -150,23 +187,27 @@ export function SchoolCrmReports({ students }: Props) {
           </div>
         </div>
 
-        <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-black">Lab Session History</h2>
-          {!state.sessions.length ? (
-            <p className="text-sm text-slate-500">
-              No sessions recorded yet. End a live lab session from the Teacher panel to populate this list.
-            </p>
+        <div className="panel-card">
+          <h2 className="mb-4 text-lg font-black">Lab Session History</h2>
+          {!sessions.length ? (
+            <div className="empty-state">No lab sessions in Term {school.term} yet. End a live session from the Teacher panel.</div>
           ) : (
-            <div className="max-h-96 space-y-2 overflow-auto">
-              {state.sessions.map((s) => (
-                <div key={s.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm">
-                  <p className="font-black">
-                    Class {s.classNumber}-{s.section} · {s.date}
-                  </p>
-                  <p className="text-slate-600">
-                    {s.teacherName} · {s.completionPct}% complete · avg {s.averageScore}% · {s.timeSpentMin}{" "}
-                    min · {s.flags} flags
-                  </p>
+            <div className="max-h-96 space-y-2.5 overflow-auto pr-1">
+              {sessions.map((s) => (
+                <div key={s.id} className="nested-card">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-black text-slate-900">
+                      Class {s.classNumber}-{s.section}
+                    </p>
+                    <span className="text-xs font-bold text-slate-500">{s.date}</span>
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-slate-600">{s.teacherName}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <span className="stat-chip">{s.completionPct}% complete</span>
+                    <span className="stat-chip">avg {s.averageScore}%</span>
+                    <span className="stat-chip">{s.timeSpentMin} min</span>
+                    <span className="stat-chip">{s.flags} flags</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -174,13 +215,13 @@ export function SchoolCrmReports({ students }: Props) {
         </div>
       </div>
 
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-black">Export Class Daily Summary</h2>
+      <div className="panel-card">
+        <h2 className="text-lg font-black">Export Class Daily Summary</h2>
         <div className="mt-4 flex flex-wrap gap-3">
           <select
             value={exportClass}
             onChange={(e) => setExportClass(Number(e.target.value))}
-            className="rounded-2xl border border-slate-200 px-4 py-3 font-bold"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 font-bold"
           >
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i + 1} value={i + 1}>
@@ -190,7 +231,7 @@ export function SchoolCrmReports({ students }: Props) {
           </select>
           <button
             onClick={exportDaily}
-            className="flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-3 font-black text-white"
+            className="flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 font-black text-white"
           >
             <Download className="h-4 w-4" /> Export .xlsx
           </button>

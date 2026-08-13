@@ -35,7 +35,7 @@ export function StudentDailyReport({ studentId, classNumber, section, name, scor
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
+      <div className="panel-card">
         <p className="text-xs font-black uppercase text-orange-600">Student Daily Report</p>
         <h1 className="mt-2 text-3xl font-black">{name}</h1>
         <p className="mt-1 text-slate-500">
@@ -66,7 +66,7 @@ export function StudentDailyReport({ studentId, classNumber, section, name, scor
         <MetricCard label="Attendance" value={report?.attendance ?? (done ? "present" : "partial")} />
       </div>
 
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
+      <div className="panel-card">
         <h2 className="text-xl font-black">LSRW Skill Snapshot</h2>
         <div className="mt-4 space-y-3">
           {(Object.keys(skills) as Skill[]).map((skill) => (
@@ -83,7 +83,7 @@ export function StudentDailyReport({ studentId, classNumber, section, name, scor
         </div>
       </div>
 
-      <div className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm">
+      <div className="panel-card">
         <h2 className="text-xl font-black">Teacher Feedback</h2>
         {!remarks.length ? (
           <p className="mt-3 text-sm text-slate-500">No remarks for this date yet.</p>
@@ -106,9 +106,9 @@ export function StudentDailyReport({ studentId, classNumber, section, name, scor
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.5rem] border border-orange-100 bg-white p-5 shadow-sm">
-      <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black capitalize text-orange-600">{value}</p>
+    <div className="metric-card">
+      <p className="metric-label">{label}</p>
+      <p className="metric-value text-orange-600">{value}</p>
     </div>
   );
 }

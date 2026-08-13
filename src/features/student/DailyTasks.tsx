@@ -10,9 +10,17 @@ type Props = {
   section: "A" | "B";
   scores: Scores;
   onStartSkill: (skill: Skill) => void;
+  practicedSkillToday: (skill: Skill) => boolean;
 };
 
-export function StudentDailyTasks({ studentId, classNumber, section, scores, onStartSkill }: Props) {
+export function StudentDailyTasks({
+  studentId,
+  classNumber,
+  section,
+  scores,
+  onStartSkill,
+  practicedSkillToday,
+}: Props) {
   const { publishedTasksFor, dispatch, reportFor } = useCrm();
   const date = todayISO();
   const tasks = publishedTasksFor({ date, classNumber, section });
@@ -41,7 +49,7 @@ export function StudentDailyTasks({ studentId, classNumber, section, scores, onS
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[1.75rem] border border-orange-100 bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white shadow-sm">
+      <div className="rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white shadow-md">
         <p className="text-xs font-black uppercase tracking-wide text-orange-50">Today · {date}</p>
         <h1 className="mt-2 text-3xl font-black">Today's Tasks</h1>
         <p className="mt-2 text-orange-50">
@@ -50,11 +58,13 @@ export function StudentDailyTasks({ studentId, classNumber, section, scores, onS
       </div>
 
       {!tasks.length ? (
-        <div className="rounded-[1.75rem] border border-orange-100 bg-white p-8 text-center shadow-sm">
-          <p className="font-black text-slate-800">No tasks published yet</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Ask your teacher to generate and publish today's AI task pack for this class.
-          </p>
+        <div className="empty-state">
+          <div>
+            <p className="font-black text-slate-800">No tasks published yet</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Ask your teacher to generate and publish today's AI task pack for this class.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -63,9 +73,7 @@ export function StudentDailyTasks({ studentId, classNumber, section, scores, onS
             return (
               <div
                 key={task.id}
-                className={`rounded-[1.5rem] border bg-white p-5 shadow-sm ${
-                  done ? "border-emerald-200" : "border-orange-100"
-                }`}
+                className={`nested-card ${done ? "border-emerald-200 bg-emerald-50/40" : ""}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -85,11 +93,11 @@ export function StudentDailyTasks({ studentId, classNumber, section, scores, onS
                     </button>
                     <button
                       onClick={() => markDone(task)}
-                      disabled={done}
+                      disabled={done || !practicedSkillToday(task.skill)}
                       className="flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 font-black text-white disabled:opacity-50"
                     >
                       {done ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-                      {done ? "Done" : "Mark Done"}
+                      {done ? "Done" : practicedSkillToday(task.skill) ? "Mark Done" : "Finish lab first"}
                     </button>
                   </div>
                 </div>

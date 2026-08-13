@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, PencilLine, Sparkles } from "lucide-react";
 import { playSoundEffect } from "../../../lib/speech";
+import { getWritingPrompt } from "../../../data/writingPrompts";
 
 type Alert = {
   id: string;
@@ -8,39 +9,6 @@ type Alert = {
   from: string;
   to: string;
   note: string;
-};
-
-const PROMPTS: Record<string, { title: string; prompt: string; starter: string; target: string; words: number }> = {
-  Foundational: {
-    title: "Trace & Copy Checker",
-    prompt: "Copy this sentence carefully: The sun is bright.",
-    starter: "The sun is bright.",
-    target: "Pre-A1",
-    words: 20,
-  },
-  Elementary: {
-    title: "Friendly Letter Builder",
-    prompt: "Write a short letter to a friend about your favourite school activity.",
-    starter: "Dear friend, I want to tell you about my favourite activity in school.",
-    target: "A2",
-    words: 80,
-  },
-  "Exam-Track": {
-    title: "Analytical Paragraph",
-    prompt: "Compare online learning and library reading in 120–150 words.",
-    starter: "Online learning offers flexibility, but library reading builds deeper focus.",
-    target: "B1+",
-    words: 150,
-  },
-  Advanced: {
-    title: "Structured Essay & AI Grammar Checker",
-    prompt:
-      "Write a persuasive essay examining how AI-driven digital language labs can bridge the urban-rural education divide across regional schools.",
-    starter:
-      "AI-driven language labs offers scalable practice for remote schools, but success lacks teacher mentoring and reliable connectivity.",
-    target: "B2",
-    words: 250,
-  },
 };
 
 function buildAlerts(text: string): Alert[] {
@@ -93,14 +61,26 @@ function buildAlerts(text: string): Alert[] {
   return alerts.slice(0, 4);
 }
 
-type Props = { profile: string; classNumber: number };
+type Props = {
+  profile: string;
+  classNumber: number;
+  onComplete?: (score: number) => void;
+  onSubmitWriting?: (payload: { title: string; content: string; score: number }) => void;
+};
 
-export function WritingLab({ profile, classNumber }: Props) {
-  const meta = useMemo(() => PROMPTS[profile] ?? PROMPTS.Elementary, [profile]);
+export function WritingLab({ classNumber, onComplete, onSubmitWriting }: Props) {
+  const meta = useMemo(() => getWritingPrompt(classNumber), [classNumber]);
   const [text, setText] = useState(meta.starter);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [accepted, setAccepted] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    setText(meta.starter);
+    setAlerts([]);
+    setAccepted([]);
+    setSubmitted(false);
+  }, [meta.starter]);
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
 
@@ -121,7 +101,7 @@ export function WritingLab({ profile, classNumber }: Props) {
   };
 
   return (
-    <div className="space-y-5 rounded-[1.75rem] border border-orange-100 bg-white p-5 shadow-sm md:p-6">
+    <div className="space-y-5 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-6">
       <div className="flex flex-col gap-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-orange-50 to-amber-50 p-5 md:flex-row md:items-center md:justify-between">
         <div>
           <span className="text-xs font-bold uppercase text-orange-700">
@@ -158,8 +138,13 @@ export function WritingLab({ profile, classNumber }: Props) {
               <span className="text-xs text-slate-500">Auto-saved just now (session only)</span>
               <button
                 onClick={() => {
+                  const openAlerts = alerts.filter((a) => !accepted.includes(a.id)).length;
+                  const lengthScore = Math.min(70, Math.round((wordCount / meta.words) * 70));
+                  const score = Math.max(45, Math.min(96, lengthScore + Math.max(0, 26 - openAlerts * 8)));
                   setSubmitted(true);
                   playSoundEffect("success");
+                  onComplete?.(score);
+                  onSubmitWriting?.({ title: meta.title, content: text, score });
                 }}
                 className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white"
               >
