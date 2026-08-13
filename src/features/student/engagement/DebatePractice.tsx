@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Clock, Mic, Square } from "lucide-react";
+import { DemoBadge } from "../../../components/DemoBadge";
 import { debateTopicsFor } from "../../../data/debateTopics";
 import { useSpeechRecognition } from "../../../hooks/useSpeechRecognition";
 import { useLiveActivity } from "../../../hooks/useLiveActivity";
@@ -78,7 +79,9 @@ export function DebatePractice({ studentId, classNumber, onComplete }: Props) {
   return (
     <div className="space-y-5">
       <div className="panel-card">
-        <p className="text-xs font-black uppercase tracking-wide text-orange-600">Debate / GD · Class {classNumber}</p>
+        <p className="text-xs font-black uppercase tracking-wide text-orange-600">
+          Debate / GD · Class {classNumber} <DemoBadge />
+        </p>
         <h1 className="mt-1 text-3xl font-black">Two-minute topic card</h1>
         <p className="mt-2 text-sm text-slate-600">Pick a side, speak for two minutes, and get a practice score.</p>
       </div>

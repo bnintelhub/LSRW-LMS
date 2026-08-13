@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Megaphone } from "lucide-react";
 import { useAppStore } from "../../context/AppStoreContext";
+import { useToast } from "../../context/ToastContext";
 import type { Announcement } from "../../types/progress";
 
 export function AnnouncementsAdmin() {
   const { announcements, addAnnouncement, updateAnnouncement } = useAppStore();
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState<Announcement["audience"]>("student");
@@ -14,6 +16,7 @@ export function AnnouncementsAdmin() {
     addAnnouncement({ title: title.trim(), message: message.trim(), audience, active: true });
     setTitle("");
     setMessage("");
+    toast("Announcement published");
   };
 
   return (

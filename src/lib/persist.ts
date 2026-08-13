@@ -122,6 +122,28 @@ export function saveCrmState(state: CrmState) {
   }
 }
 
+const DEMO_KEYS = [
+  STORAGE_KEY,
+  APP_KEY,
+  SUBMISSIONS_KEY,
+  ATTENDANCE_KEY,
+  SCHOOL_KEY,
+  ANNOUNCEMENTS_KEY,
+  HINTS_KEY,
+  "lsrw-live-activity-v1",
+  "lsrw-wotd-seen",
+];
+
+export function clearDemoStorage() {
+  for (const key of DEMO_KEYS) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 const defaultSchool: SchoolProfile = {
   name: "LSRW Language Lab",
   address: "Demo Campus",

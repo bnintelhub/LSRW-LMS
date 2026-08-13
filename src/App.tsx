@@ -91,31 +91,40 @@ import {
 import { ParentReport } from "./features/parent/ParentReport";
 import { CopyParentLink } from "./features/parent/CopyParentLink";
 import { parseParentShare } from "./lib/parentLink";
+import { StudentHome } from "./features/student/StudentHome";
+import { TeacherHome, type TeacherTab } from "./features/teacher/TeacherHome";
+import { LiveMonitoring } from "./features/teacher/LiveMonitoring";
+import { ResetDemoData } from "./features/admin/ResetDemoData";
+import { DemoBadge } from "./components/DemoBadge";
+import { EmptyState } from "./components/EmptyState";
+import { ChipBadge, Metric } from "./components/Metric";
+import { Modal } from "./components/Modal";
+import { SkillIcon } from "./components/SkillIcon";
+import { StudentProfileCard } from "./components/StudentProfileCard";
+import { classMeta, isGameBand } from "./data/classBands";
+import { credentialUserId, randomPassword, scoreFor } from "./data/seed";
+import { average, classAverage } from "./lib/stats";
 import { StudentDailyTasks } from "./features/student/DailyTasks";
 import { StudentDailyReport } from "./features/student/DailyReport";
 import { DailyTaskDesk } from "./features/teacher/DailyTaskDesk";
 import { SubmissionInbox } from "./features/teacher/SubmissionInbox";
 import { AttendancePanel } from "./features/teacher/AttendancePanel";
-import { ClassSnapshot } from "./features/teacher/ClassSnapshot";
 import { exportClassReport } from "./features/teacher/ClassExport";
 import { SchoolCrmReports } from "./features/admin/SchoolCrmReports";
 import { TeacherManagement } from "./features/admin/TeacherManagement";
 import { SchoolProfileForm } from "./features/admin/SchoolProfile";
 import { AcademicYear } from "./features/admin/AcademicYear";
-import { AnnouncementBanner, AnnouncementsAdmin } from "./features/admin/Announcements";
+import { AnnouncementsAdmin } from "./features/admin/Announcements";
 import { allotmentsFromTeachers } from "./lib/persist";
-import { SessionTimer, elapsedMinutes } from "./components/SessionTimer";
-import { getLiveActivity, isStale } from "./lib/liveActivity";
 import { useCrm } from "./context/CrmContext";
 import { todayISO } from "./lib/aiTaskGenerator";
 import { Chatbot } from "./components/Chatbot";
 import { WordOfDayModal } from "./components/WordOfDayModal";
 import { Leaderboard } from "./components/Leaderboard";
 import { BadgeGrid } from "./components/BadgeGrid";
-import { HomeworkBanner } from "./components/HomeworkBanner";
 import { HindiHintToggle } from "./components/HindiHintToggle";
 import { ScoreToastBanner } from "./components/ScoreToastBanner";
-import { PortalShell, WelcomeBanner, Sparkline, RingProgress } from "./components/PortalShell";
+import { PortalShell, WelcomeBanner } from "./components/PortalShell";
 import {
   getWordForDate,
   hasSeenWordToday,
@@ -123,26 +132,17 @@ import {
 } from "./data/wordOfTheDay";
 import { useAppStore } from "./context/AppStoreContext";
 import { useLiveActivity } from "./hooks/useLiveActivity";
-import { credentialUserId, randomPassword, scoreFor } from "./data/seed";
 import type { Student, Teacher } from "./types/student";
-
-/** Class 1–4: game labs. Class 5–12: AI Speaking/Listening/Reading/Writing labs. */
-function isGameBand(classNumber: number) {
-  return classNumber < 5;
-}
 
 type Role = "admin" | "teacher" | "student";
 type Skill = "Listening" | "Speaking" | "Reading" | "Writing";
 type Profile = "Foundational" | "Elementary" | "Exam-Track" | "Advanced";
-type Activity = Skill | "Idle";
 type ExtraView = "phonics" | "story" | "spelling" | "debate" | "interview";
 type View = "home" | "tasks" | "report" | "leaderboard" | "badges" | "help" | ExtraView | Skill;
 
 function isSkillView(view: View): view is Skill {
   return view === "Listening" || view === "Speaking" || view === "Reading" || view === "Writing";
 }
-
-type Scores = Record<Skill, number>;
 
 type Account = {
   id: string;
@@ -166,217 +166,6 @@ type AppState = {
 type AppAction =
   | { type: "login"; session: Session }
   | { type: "logout" };
-
-type SessionStudent = {
-  student: Student;
-  activity: Activity;
-  progress: number;
-  flag: "ok" | "idle" | "low-score";
-  currentScore: number;
-};
-
-const skills: Skill[] = ["Listening", "Speaking", "Reading", "Writing"];
-const statuses: Activity[] = ["Listening", "Speaking", "Reading", "Writing", "Idle"];
-
-const classMeta: Record<
-  number,
-  { level: string; cefr: string; profile: Profile; ui: string; focus: string }
-> = {
-  1: {
-    level: "Foundational / Pre-Reader",
-    cefr: "Pre-A1",
-    profile: "Foundational",
-    ui: "AI teacher voice-first games",
-    focus: "phonics, picture matching, tracing",
-  },
-  2: {
-    level: "Early Reader",
-    cefr: "Pre-A1 to A1",
-    profile: "Foundational",
-    ui: "High animation with labelled icons",
-    focus: "rhymes, simple sentences, picture stories",
-  },
-  3: {
-    level: "Beginner",
-    cefr: "A1",
-    profile: "Foundational",
-    ui: "Reward animation with readable cards",
-    focus: "short stories, routines, guided paragraphs",
-  },
-  4: {
-    level: "Elementary",
-    cefr: "A1+",
-    profile: "Elementary",
-    ui: "Card lessons with star ratings",
-    focus: "dialogues, paragraph reading, informal letters",
-  },
-  5: {
-    level: "Elementary+",
-    cefr: "A2 entry",
-    profile: "Elementary",
-    ui: "Structured dashboard with charts",
-    focus: "children's news, mini-presentations, tenses",
-  },
-  6: {
-    level: "Pre-Intermediate",
-    cefr: "A2",
-    profile: "Elementary",
-    ui: "Clean low-animation layout",
-    focus: "note-taking, group discussion, essays",
-  },
-  7: {
-    level: "Intermediate Entry",
-    cefr: "A2+ / B1 entry",
-    profile: "Elementary",
-    ui: "Practice plus early exam style",
-    focus: "summaries, debate, reports",
-  },
-  8: {
-    level: "Intermediate",
-    cefr: "B1",
-    profile: "Exam-Track",
-    ui: "Timed exam-oriented interface",
-    focus: "academic listening, literary extracts, notices",
-  },
-  9: {
-    level: "Intermediate+",
-    cefr: "B1+",
-    profile: "Exam-Track",
-    ui: "Board-pattern analytics",
-    focus: "note-making, JAM, unseen passages",
-  },
-  10: {
-    level: "Upper-Intermediate",
-    cefr: "B1+ / B2 entry",
-    profile: "Exam-Track",
-    ui: "Full exam simulation",
-    focus: "interviews, public speaking, analytical writing",
-  },
-  11: {
-    level: "Advanced Entry",
-    cefr: "B2",
-    profile: "Advanced",
-    ui: "Professional career-ready workspace",
-    focus: "GD, editorials, argumentative writing",
-  },
-  12: {
-    level: "Advanced",
-    cefr: "B2+",
-    profile: "Advanced",
-    ui: "Benchmarking and exam simulation",
-    focus: "competitive listening, mock interviews, SOP writing",
-  },
-};
-
-const lessonCopy: Record<
-  Profile,
-  Record<Skill, { title: string; prompt: string; task: string; metric: string }>
-> = {
-  Foundational: {
-    Listening: {
-      title: "Listening Studio",
-      prompt: "Clear adult AI voice playback with picture comprehension.",
-      task: "Junior listening clip",
-      metric: "engagement",
-    },
-    Speaking: {
-      title: "AI Speaking Lab",
-      prompt: "Listen target sentence, record, and get pronunciation scores.",
-      task: "Repeat practice",
-      metric: "pronunciation",
-    },
-    Reading: {
-      title: "Reading & WPM",
-      prompt: "Tap words for pronunciation and dictionary.",
-      task: "Sight-word passage",
-      metric: "sight words",
-    },
-    Writing: {
-      title: "Writing AI Checker",
-      prompt: "Copy and check with live grammar suggestions.",
-      task: "Trace & copy",
-      metric: "letter formation",
-    },
-  },
-  Elementary: {
-    Listening: {
-      title: "Listening Studio",
-      prompt: "School announcements with MCQ and dictation quiz.",
-      task: "Announcement drill",
-      metric: "detail capture",
-    },
-    Speaking: {
-      title: "AI Speaking Lab",
-      prompt: "Record classroom sentences for fluency scoring.",
-      task: "Guided speaking",
-      metric: "fluency",
-    },
-    Reading: {
-      title: "Reading & WPM",
-      prompt: "Timed reading with click-to-speak dictionary.",
-      task: "Garden paragraph",
-      metric: "comprehension",
-    },
-    Writing: {
-      title: "Writing AI Checker",
-      prompt: "Friendly letter with AI grammar alerts.",
-      task: "Letter writing",
-      metric: "grammar",
-    },
-  },
-  "Exam-Track": {
-    Listening: {
-      title: "Listening Studio",
-      prompt: "Board-pattern podcast with speed control and quiz.",
-      task: "Climate podcast",
-      metric: "accuracy under time",
-    },
-    Speaking: {
-      title: "AI Speaking Lab",
-      prompt: "Exam-style sentence drills with phonetic breakdown.",
-      task: "JAM / fluency",
-      metric: "confidence",
-    },
-    Reading: {
-      title: "Reading & WPM",
-      prompt: "Unseen passage, timer, and CEFR speed benchmark.",
-      task: "Unseen drill",
-      metric: "speed and accuracy",
-    },
-    Writing: {
-      title: "Writing AI Checker",
-      prompt: "Analytical paragraph with accept-fix suggestions.",
-      task: "Analytical writing",
-      metric: "structure",
-    },
-  },
-  Advanced: {
-    Listening: {
-      title: "Listening Studio",
-      prompt: "Professional lecture excerpt with comprehension quiz.",
-      task: "Ethical AI talk",
-      metric: "summarization",
-    },
-    Speaking: {
-      title: "AI Speaking Lab",
-      prompt: "Interview/GD sentences with live mic analysis.",
-      task: "GD / interview",
-      metric: "executive presence",
-    },
-    Reading: {
-      title: "Reading & WPM",
-      prompt: "Advanced passage, WPM timer, instant word pronunciation.",
-      task: "Editorial reading",
-      metric: "critical reasoning",
-    },
-    Writing: {
-      title: "Writing AI Checker",
-      prompt: "Persuasive essay with real-time grammar panel.",
-      task: "Formal essay",
-      metric: "professional writing",
-    },
-  },
-};
 
 function createAccounts(students: Student[], teacherList: Teacher[]): Account[] {
   const admin: Account = {
@@ -420,27 +209,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
     default:
       return state;
   }
-}
-
-function average(scores: Scores) {
-  return Math.round(skills.reduce((sum, skill) => sum + scores[skill], 0) / skills.length);
-}
-
-function classAverage(students: Student[], classNumber: number) {
-  const classStudents = students.filter((student) => student.classNumber === classNumber);
-  return Math.round(
-    classStudents.reduce((sum, student) => sum + average(student.scores), 0) / classStudents.length,
-  );
-}
-
-function radarData(scores: Scores) {
-  return skills.map((skill) => ({ skill, score: scores[skill] }));
-}
-
-function bandClasses(profile: Profile) {
-  return Object.entries(classMeta)
-    .filter(([, meta]) => meta.profile === profile)
-    .map(([classNumber]) => Number(classNumber));
 }
 
 function App() {
@@ -602,7 +370,7 @@ function LoginPage({
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fed7aa,transparent_34%),linear-gradient(135deg,#fff,rgba(255,247,237,.95))] px-6 py-8">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_.95fr]">
         <section className="panel-card p-8">
-          <Badge icon={<School size={18} />} text="School English Language Lab" />
+          <ChipBadge icon={<School size={18} />} text="School English Language Lab" />
           <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950 md:text-6xl">
             LSRW lab demo for every class, every role, every period.
           </h1>
@@ -890,7 +658,7 @@ function StudentExperience({
         }}
       >
         {view === "home" && (
-          <StudentHome student={student} profile={profile} meta={meta} students={students} setView={setView} avg={avg} />
+          <StudentHome student={student} profile={profile} students={students} setView={setView} avg={avg} />
         )}
         {view === "tasks" && (
           <StudentDailyTasks
@@ -979,168 +747,6 @@ function StudentExperience({
   );
 }
 
-function StudentHome({
-  student,
-  profile,
-  meta,
-  students,
-  setView,
-  avg,
-}: {
-  student: Student;
-  profile: Profile;
-  meta: (typeof classMeta)[number];
-  students: Student[];
-  setView: (view: View) => void;
-  avg: number;
-}) {
-  const { rankFor, showHindiHints } = useAppStore();
-  const { publishedTasksFor } = useCrm();
-  const chartData = skills.map((skill) => ({
-    skill,
-    score: student.scores[skill],
-    classAvg: classAverage(students, student.classNumber),
-  }));
-  const gameMode = isGameBand(student.classNumber);
-  const rank = rankFor(student.id);
-  const date = todayISO();
-  const tasks = publishedTasksFor({ date, classNumber: student.classNumber, section: student.section });
-  const remaining = tasks.filter((t) => !t.completedBy.includes(student.id)).length;
-  const wotd = getWordForDate(date);
-  return (
-    <div className="space-y-6">
-      <AnnouncementBanner audience="student" />
-      <WelcomeBanner
-        badge={`Class ${student.classNumber} · ${meta.cefr} · ${gameMode ? "Game Mode" : "AI Lab Mode"}`}
-        title={
-          gameMode
-            ? `Good day, ${student.name.split(" ")[0]}!`
-            : `Good day, ${student.name.split(" ")[0]}!`
-        }
-        text={
-          gameMode
-            ? "Play, listen, speak and win stars with today's LSRW games."
-            : "Your communication labs, tasks, and progress are ready for today's session."
-        }
-      />
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric title="Average" value={`${avg}%`} icon={<BarChart3 />} accent="orange" />
-        <Metric title="Streak" value={`${student.streak} days`} icon={<Sparkles />} accent="purple" />
-        <Metric title="Class Rank" value={`#${rank.rank}`} icon={<Star />} accent="green" />
-        <Metric title="XP" value={String(student.xp)} icon={<Award />} accent="blue" />
-      </div>
-
-      <HomeworkBanner remaining={remaining} onOpenTasks={() => setView("tasks")} />
-      {student.classNumber >= 5 && <LearningPath student={student} onOpenSkill={(skill) => setView(skill)} />}
-
-      <div className="grid gap-5 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="word-of-day-strip">
-          <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-orange-500 text-2xl text-white shadow-lg shadow-orange-200">
-              📖
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-orange-600">Word of the Day</p>
-              <p className="text-xl font-black text-slate-900">{wotd.word}</p>
-              <p className="text-sm text-slate-500">{wotd.meaning}</p>
-              {showHindiHints && wotd.hindi && (
-                <p className="mt-1 text-sm font-semibold text-orange-700">Hindi: {wotd.hindi}</p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="panel-card flex items-center justify-center">
-          <RingProgress
-            value={tasks.length ? Math.round(((tasks.length - remaining) / tasks.length) * 100) : 0}
-            label="Today's tasks"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        <div className="content-card">
-            <h2 className="mb-4 flex items-center justify-between text-xl font-black text-slate-900">
-              <span>{gameMode ? "Today's Games" : "Today's AI Labs"}</span>
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
-                {gameMode ? "Class 1–4 Games" : "Class 5+ AI Labs"}
-              </span>
-            </h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {skills.map((skill) => (
-              <motion.button
-                whileHover={{ y: -4 }}
-                key={skill}
-                onClick={() => setView(skill)}
-                className={`lesson-card ${profile.toLowerCase().replace("-", "")}`}
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                  {skillIcon(skill)}
-                </span>
-                <span className="text-left">
-                  <span className="block text-lg font-black">
-                    {gameMode
-                      ? ({
-                          Listening: "Pop the Sound Bubble",
-                          Speaking: "Echo Speak Game",
-                          Reading: "Picture Word Match",
-                          Writing: "Word Builder Game",
-                        }[skill])
-                      : lessonCopy[profile][skill].title}
-                  </span>
-                  <span className="text-sm text-slate-600">
-                    {gameMode
-                      ? ({
-                          Listening: "Listen and tap the matching picture bubble.",
-                          Speaking: "Hear clear AI voice, then speak into the mic.",
-                          Reading: "Match sight words with pictures.",
-                          Writing: "Build words with letter tiles.",
-                        }[skill])
-                      : lessonCopy[profile][skill].prompt}
-                  </span>
-                </span>
-                {gameMode && <span className="gif-orbit" />}
-              </motion.button>
-            ))}
-          </div>
-        </div>
-        <div className="content-card">
-          <h2 className="mb-3 text-xl font-black text-slate-900">
-            {gameMode ? "Star Badges" : "Skill Radar"}
-          </h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData(student.scores)}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="skill" />
-                <Radar dataKey="score" fill="#f97316" fillOpacity={0.35} stroke="#f97316" />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {(profile === "Exam-Track" || profile === "Advanced") && (
-        <div className="panel-card">
-          <h2 className="mb-4 text-xl font-black">Score vs Class Average</h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="skill" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="score" fill="#f97316" radius={[10, 10, 0, 0]} />
-                <Bar dataKey="classAvg" fill="#fed7aa" radius={[10, 10, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PracticeScreen({
   student,
   profile,
@@ -1176,10 +782,13 @@ function PracticeScreen({
         <button className="rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-700" onClick={() => setView("home")}>
           Back to dashboard
         </button>
-        <Badge
-          icon={skillIcon(skill)}
-          text={`${labTitle[skill]} · Class ${student.classNumber} · ${gameMode ? "Game Mode" : "AI Lab"}`}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <ChipBadge
+            icon={<SkillIcon skill={skill} />}
+            text={`${labTitle[skill]} · Class ${student.classNumber} · ${gameMode ? "Game Mode" : "AI Lab"}`}
+          />
+          <DemoBadge />
+        </div>
       </div>
 
       {gameMode ? (
@@ -1339,7 +948,12 @@ function AdminDashboard({
       {tab === "reports" && <AdminReports students={students} />}
       {tab === "crm" && <SchoolCrmReports students={students} />}
       {tab === "announcements" && <AnnouncementsAdmin />}
-      {tab === "settings" && <AcademicYear />}
+      {tab === "settings" && (
+        <div className="space-y-5">
+          <AcademicYear />
+          <ResetDemoData />
+        </div>
+      )}
       {tab === "help" && (
         <div className="panel-card">
           <h1 className="text-2xl font-black">Help & Support</h1>
@@ -1474,7 +1088,7 @@ function BulkOnboarding() {
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
       <div className="panel-card">
-        <Badge icon={<Upload size={17} />} text="Bulk Excel Onboarding" />
+        <ChipBadge icon={<Upload size={17} />} text="Bulk Excel Onboarding" />
         <h1 className="mt-4 text-3xl font-black">Upload, validate, confirm</h1>
         <p className="mt-3 text-slate-600">Expected columns: Name, Class, Section, Mobile Number, Date of Birth, Roll Number.</p>
         <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-200 px-4 py-3 font-black text-orange-600" onClick={downloadTemplate}>
@@ -1682,18 +1296,6 @@ function AdminReports({ students }: { students: Student[] }) {
   );
 }
 
-type TeacherTab =
-  | "dashboard"
-  | "tasks"
-  | "live"
-  | "roster"
-  | "reviews"
-  | "submissions"
-  | "reports"
-  | "settings"
-  | "help"
-  | "attendance";
-
 function TeacherDashboard({
   teacher,
   students,
@@ -1820,343 +1422,6 @@ function TeacherDashboard({
         </div>
       )}
     </PortalShell>
-  );
-}
-
-function TeacherHome({
-  teacher,
-  students,
-  activeClass,
-  setActiveClass,
-  setTab,
-}: {
-  teacher: Teacher;
-  students: Student[];
-  activeClass: { classNumber: number; section: "A" | "B" };
-  setActiveClass: (value: { classNumber: number; section: "A" | "B" }) => void;
-  setTab: (tab: TeacherTab) => void;
-}) {
-  const { dispatch, isClassSessionActive, publishedTasksFor } = useCrm();
-  const { submissions, attendance, markAttendance } = useAppStore();
-  const [showAttendance, setShowAttendance] = useState(false);
-  const date = todayISO();
-  const wotd = getWordForDate(date);
-  const scoped = students.filter((student) => teacher.allotted.some((item) => item.classNumber === student.classNumber && item.section === student.section));
-  const pending = submissions.filter(
-    (item) =>
-      item.status === "pending" &&
-      teacher.allotted.some((slot) => slot.classNumber === item.classNumber && slot.section === item.section),
-  ).length;
-  const sessionLive = isClassSessionActive(activeClass.classNumber, activeClass.section, date);
-  const classStudents = scoped.filter(
-    (student) => student.classNumber === activeClass.classNumber && student.section === activeClass.section,
-  );
-  const published = publishedTasksFor({
-    date,
-    classNumber: activeClass.classNumber,
-    section: activeClass.section,
-  });
-  const completionPct =
-    published.length && classStudents.length
-      ? Math.round(
-          (published.reduce(
-            (sum, task) => sum + task.completedBy.filter((id) => classStudents.some((s) => s.id === id)).length,
-            0,
-          ) /
-            (published.length * classStudents.length)) *
-            100,
-        )
-      : 0;
-
-  const startSession = () => {
-    if (sessionLive) {
-      setTab("live");
-      return;
-    }
-    setShowAttendance(true);
-  };
-
-  const confirmAttendance = (records: typeof attendance) => {
-    markAttendance(records);
-    dispatch({
-      type: "startLabSession",
-      session: {
-        classNumber: activeClass.classNumber,
-        section: activeClass.section,
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        startedAt: new Date().toISOString(),
-        date,
-      },
-    });
-    setShowAttendance(false);
-    setTab("live");
-  };
-
-  if (showAttendance) {
-    return (
-      <AttendancePanel
-        key={`${activeClass.classNumber}-${activeClass.section}-home`}
-        classNumber={activeClass.classNumber}
-        section={activeClass.section}
-        date={date}
-        teacherId={teacher.id}
-        students={classStudents}
-        existing={attendance.filter(
-          (row) =>
-            row.date === date &&
-            row.classNumber === activeClass.classNumber &&
-            row.section === activeClass.section,
-        )}
-        onSave={confirmAttendance}
-        onCancel={() => setShowAttendance(false)}
-      />
-    );
-  }
-  return (
-    <div className="space-y-6">
-      <AnnouncementBanner audience="teacher" />
-      <WelcomeBanner
-        badge={`${teacher.band} Teacher`}
-        title={`Good morning, ${teacher.name.split(" ")[0]}!`}
-        text="Assign AI daily tasks, start lab sessions, review submissions, and track class completion."
-      />
-      <div className="grid gap-4 md:grid-cols-4">
-        <Metric title="Students" value={String(scoped.length)} icon={<Users />} accent="orange" />
-        <Metric title="Classes" value={String(teacher.allotted.length)} icon={<School />} accent="purple" />
-        <Metric title="Pending Reviews" value={String(pending)} icon={<PencilLine />} accent="green" />
-        <Metric title="Session" value={sessionLive ? "Live" : "Idle"} icon={<MonitorDot />} accent="blue" />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-[1.4fr_0.8fr]">
-        <div className="panel-card">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-black">Start Lab Session</h2>
-            {sessionLive && (
-              <Badge icon={<MonitorDot size={17} />} text={`Class ${activeClass.classNumber}-${activeClass.section} is LIVE`} />
-            )}
-          </div>
-          <p className="mt-2 text-sm text-slate-600">
-            Students can log in only after you start the session for their class.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {teacher.allotted.map((item) => (
-              <button
-                key={`${item.classNumber}-${item.section}`}
-                className={`rounded-full px-4 py-2 text-sm font-black ${activeClass.classNumber === item.classNumber && activeClass.section === item.section ? "bg-orange-500 text-white" : "bg-violet-50 text-violet-700"}`}
-                onClick={() => setActiveClass(item)}
-              >
-                Class {item.classNumber}-{item.section}
-              </button>
-            ))}
-          </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button className="rounded-xl bg-orange-500 px-5 py-2.5 font-black text-white" onClick={startSession}>
-              {sessionLive ? "Open Live Monitoring" : `Start Lab Session`}
-            </button>
-            <button className="rounded-xl border border-slate-200 px-5 py-2.5 font-black text-slate-700" onClick={() => setTab("tasks")}>
-              Open Daily Tasks
-            </button>
-          </div>
-        </div>
-        <div className="space-y-5">
-          <ClassSnapshot
-            classNumber={activeClass.classNumber}
-            section={activeClass.section}
-            students={classStudents}
-            published={published}
-          />
-          <div className="panel-card">
-            <p className="text-xs font-black uppercase tracking-wide text-orange-600">Word of the Day</p>
-            <p className="mt-1 text-2xl font-black">{wotd.word}</p>
-            <p className="text-sm text-slate-500">{wotd.pronunciation}</p>
-            <p className="mt-2 text-sm font-semibold text-slate-700">{wotd.meaning}</p>
-          </div>
-          <div className="panel-card flex justify-center py-6">
-            <RingProgress value={completionPct} label="Today's Progress" />
-          </div>
-          <div className="panel-card">
-          <h2 className="mb-3 text-lg font-black">Today's Schedule</h2>
-          {teacher.allotted.map((item, index) => (
-            <div key={`${item.classNumber}-${item.section}`} className="schedule-row">
-              <span className="schedule-dot" style={{ background: ["#f97316", "#22c55e", "#8b5cf6"][index % 3] }} />
-              <div className="flex-1">
-                <p className="text-sm font-black">Class {item.classNumber}-{item.section}</p>
-                <p className="text-xs font-semibold text-slate-500">{8 + index}:30 AM · LSRW Lab</p>
-              </div>
-            </div>
-          ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LiveMonitoring({
-  activeClass,
-  students,
-  teacher,
-}: {
-  activeClass: { classNumber: number; section: "A" | "B" };
-  students: Student[];
-  teacher: Teacher;
-}) {
-  const { dispatch, getActiveSession } = useCrm();
-  const { attendance, markAttendance } = useAppStore();
-  const date = todayISO();
-  const roster = students.filter((student) => student.classNumber === activeClass.classNumber && student.section === activeClass.section);
-  const session = getActiveSession(activeClass.classNumber, activeClass.section);
-  const [tick, setTick] = useState(0);
-  const [selected, setSelected] = useState<SessionStudent | null>(null);
-  const [ended, setEnded] = useState(false);
-  const [lastMinutes, setLastMinutes] = useState(1);
-
-  useEffect(() => {
-    if (ended || !session) return;
-    const interval = window.setInterval(() => setTick((value) => value + 1), 2500);
-    return () => window.clearInterval(interval);
-  }, [ended, session]);
-
-  const sessionStudents = roster.map<SessionStudent>((student) => {
-    void tick;
-    const live = getLiveActivity(student.id);
-    const stale = isStale(live, 30_000);
-    const activity = !live || stale ? "Idle" : live.skill;
-    const progress = !live || stale ? 0 : live.progress;
-    const skillForScore: Skill = activity === "Idle" ? "Listening" : activity;
-    const currentScore = student.scores[skillForScore];
-    const flag = activity === "Idle" ? "idle" : currentScore < 68 ? "low-score" : "ok";
-    return { student, activity, progress, flag, currentScore };
-  });
-
-  const startFromAttendance = (records: typeof attendance) => {
-    markAttendance(records);
-    dispatch({
-      type: "startLabSession",
-      session: {
-        classNumber: activeClass.classNumber,
-        section: activeClass.section,
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        startedAt: new Date().toISOString(),
-        date,
-      },
-    });
-  };
-
-  if (!ended && !session) {
-    return (
-      <AttendancePanel
-        key={`${activeClass.classNumber}-${activeClass.section}-live`}
-        classNumber={activeClass.classNumber}
-        section={activeClass.section}
-        date={date}
-        teacherId={teacher.id}
-        students={roster}
-        existing={attendance.filter(
-          (row) =>
-            row.date === date &&
-            row.classNumber === activeClass.classNumber &&
-            row.section === activeClass.section,
-        )}
-        saveLabel="Save attendance & go live"
-        onSave={startFromAttendance}
-      />
-    );
-  }
-
-  if (ended) {
-    const completion = Math.round(sessionStudents.reduce((sum, item) => sum + item.progress, 0) / Math.max(1, sessionStudents.length));
-    const averageScore = Math.round(sessionStudents.reduce((sum, item) => sum + item.currentScore, 0) / Math.max(1, sessionStudents.length));
-    const flags = sessionStudents.filter((item) => item.flag !== "ok").length;
-    return (
-      <div className="panel-card p-8">
-        <Badge icon={<CheckCircle2 size={17} />} text="Session Summary" />
-        <h1 className="mt-4 text-4xl font-black">Class {activeClass.classNumber}-{activeClass.section} lab period completed</h1>
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <Metric title="Completion" value={`${completion}%`} icon={<CheckCircle2 />} />
-          <Metric title="Average Score" value={`${averageScore}%`} icon={<BarChart3 />} />
-          <Metric title="Time Spent" value={`${lastMinutes} min`} icon={<Clock />} />
-          <Metric title="Flags" value={String(flags)} icon={<Flag />} />
-        </div>
-        <button className="mt-6 rounded-2xl bg-orange-500 px-5 py-3 font-black text-white" onClick={() => setEnded(false)}>
-          Start New Session
-        </button>
-      </div>
-    );
-  }
-
-  const endSession = () => {
-    const completion = Math.round(sessionStudents.reduce((sum, item) => sum + item.progress, 0) / Math.max(1, sessionStudents.length));
-    const averageScore = Math.round(sessionStudents.reduce((sum, item) => sum + item.currentScore, 0) / Math.max(1, sessionStudents.length));
-    const flags = sessionStudents.filter((item) => item.flag !== "ok").length;
-    const minutes = elapsedMinutes(session?.startedAt ?? new Date().toISOString());
-    setLastMinutes(minutes);
-    dispatch({
-      type: "addSession",
-      session: {
-        id: `sess-${Date.now()}`,
-        date: todayISO(),
-        classNumber: activeClass.classNumber,
-        section: activeClass.section,
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        completionPct: completion,
-        averageScore,
-        timeSpentMin: minutes,
-        flags,
-      },
-    });
-    dispatch({
-      type: "endLabSession",
-      classNumber: activeClass.classNumber,
-      section: activeClass.section,
-    });
-    setEnded(true);
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4 panel-card">
-        <div>
-          <Badge icon={<MonitorDot size={17} />} text="Live session running" />
-          <h1 className="mt-2 text-3xl font-black">Class {activeClass.classNumber}-{activeClass.section} Monitoring Grid</h1>
-          <p className="mt-1 text-xs font-semibold text-slate-500">Heartbeat from student labs · Idle if no update in 30s</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {session && <SessionTimer startedAt={session.startedAt} />}
-          <button className="rounded-2xl bg-slate-900 px-5 py-3 font-black text-white" onClick={endSession}>
-            End Session
-          </button>
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {sessionStudents.map((item) => (
-          <button key={item.student.id} className="nested-card w-full text-left transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => setSelected(item)}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-orange-100 font-black text-orange-700">{item.student.name.split(" ").map((part) => part[0]).join("")}</div>
-                <div>
-                  <p className="font-black">{item.student.name}</p>
-                  <p className="text-sm text-slate-500">Roll {item.student.roll}</p>
-                </div>
-              </div>
-              <StatusFlag flag={item.flag} />
-            </div>
-            <div className="mt-4 flex items-center justify-between text-sm font-bold">
-              <span>{item.activity}</span>
-              <span>{item.progress}%</span>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-orange-100">
-              <motion.div animate={{ width: `${item.progress}%` }} className="h-2 rounded-full bg-orange-500" />
-            </div>
-          </button>
-        ))}
-      </div>
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title="Student Live Detail">
-        {selected && <StudentDrawer item={selected} />}
-      </Modal>
-    </div>
   );
 }
 
@@ -2324,6 +1589,9 @@ function TeacherRoster({
   return (
     <div className="panel-card">
       <h1 className="text-3xl font-black">Scoped Class Roster</h1>
+      {!scoped.length ? (
+        <EmptyState title="No students in your allotment" text="Ask School Admin to assign classes or onboard students." />
+      ) : (
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {scoped.map((student) => (
           <button
@@ -2336,10 +1604,11 @@ function TeacherRoster({
           </button>
         ))}
       </div>
+      )}
       <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title="Student Profile">
         {selected && (
           <div>
-            <StudentProfile student={selected} />
+            <StudentProfileCard student={selected} />
             <div className="mt-5">
               <CopyParentLink studentId={selected.id} />
               <textarea className="mt-4 h-24 w-full rounded-2xl border border-slate-200 p-3" placeholder="Add teacher remark" value={remark} onChange={(event) => setRemark(event.target.value)} />
@@ -2382,128 +1651,6 @@ function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: 
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
   );
-}
-
-function Badge({ icon, text }: { icon: ReactNode; text: string }) {
-  return <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-sm font-black text-orange-700">{icon}{text}</span>;
-}
-
-function Metric({
-  title,
-  value,
-  icon,
-  accent = "orange",
-}: {
-  title: string;
-  value: string;
-  icon: ReactNode;
-  accent?: "orange" | "amber" | "yellow" | "rose" | "purple" | "green" | "blue";
-}) {
-  const spark = { orange: "#f97316", purple: "#7c3aed", green: "#059669", blue: "#2563eb", amber: "#d97706", yellow: "#ca8a04", rose: "#e11d48" }[accent];
-  return (
-    <div className={`metric-card metric-card-${accent}`}>
-      <div className="flex items-start justify-between">
-        <div className="metric-icon">{icon}</div>
-        <Sparkline color={spark} />
-      </div>
-      <p className="metric-label">{title}</p>
-      <p className="metric-value">{value}</p>
-    </div>
-  );
-}
-
-function HeroCard({ profile, children }: { profile: Profile; children: ReactNode }) {
-  return <div className={`hero-card ${profile.toLowerCase().replace("-", "")}`}>{children}</div>;
-}
-
-function SideButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold ${
-        active ? "bg-orange-500 text-white shadow-sm" : "text-slate-600 hover:bg-orange-50"
-      }`}
-      onClick={onClick}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function DashboardTabs({ active, setActive, tabs }: { active: string; setActive: (value: string) => void; tabs: [string, string][] }) {
-  return (
-    <div className="mb-6 flex flex-wrap gap-1.5 rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-sm">
-      {tabs.map(([value, label]) => (
-        <button key={value} className={`rounded-xl px-4 py-2.5 text-sm font-black ${active === value ? "bg-orange-500 text-white shadow-sm" : "text-slate-600 hover:bg-orange-50"}`} onClick={() => setActive(value)}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 p-4">
-      <div className="rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-black">{title}</h2>
-          <button className="rounded-xl bg-orange-100 px-3 py-2 font-black text-orange-700" onClick={onClose}>Close</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function AiTeacher({ mood }: { mood: "wave" | "celebrate" }) {
-  return <motion.div animate={{ rotate: mood === "wave" ? [0, -4, 4, 0] : [0, 8, -8, 0], scale: mood === "celebrate" ? [1, 1.06, 1] : 1 }} transition={{ repeat: Infinity, duration: 1.7 }} className="text-8xl">🤖</motion.div>;
-}
-
-function StudentDrawer({ item }: { item: SessionStudent }) {
-  return (
-    <div>
-      <StudentProfile student={item.student} />
-      <div className="mt-5 rounded-3xl bg-orange-50 p-4">
-        <p className="font-black">Current Exercise: {item.activity}</p>
-        <p className="text-sm text-slate-600">Progress {item.progress}% · Current score {item.currentScore}% · Flag {item.flag}</p>
-      </div>
-    </div>
-  );
-}
-
-function StudentProfile({ student }: { student: Student }) {
-  return (
-    <div>
-      <h3 className="text-xl font-black">{student.name}</h3>
-      <p className="text-slate-500">Class {student.classNumber}-{student.section} · User ID {student.userId}</p>
-      <div className="mt-4 h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData(student.scores)}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="skill" />
-            <Radar dataKey="score" fill="#f97316" fillOpacity={0.35} stroke="#f97316" />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function StatusFlag({ flag }: { flag: SessionStudent["flag"] }) {
-  const style = flag === "ok" ? "bg-green-100 text-green-700" : flag === "idle" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
-  return <span className={`rounded-full px-3 py-1 text-xs font-black ${style}`}>{flag === "ok" ? "Active" : flag === "idle" ? "Idle flag" : "Low score"}</span>;
-}
-
-function skillIcon(skill: Skill) {
-  const map: Record<Skill, ReactNode> = {
-    Listening: <Headphones size={20} />,
-    Speaking: <Mic size={20} />,
-    Reading: <BookOpen size={20} />,
-    Writing: <PencilLine size={20} />,
-  };
-  return map[skill];
 }
 
 export default App;

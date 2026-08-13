@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { CheckCircle2, ClipboardList, Plus, Sparkles, Trash2 } from "lucide-react";
 import { RingProgress } from "../../components/PortalShell";
+import { DemoBadge } from "../../components/DemoBadge";
+import { SkeletonCards } from "../../components/Skeleton";
 import { useCrm } from "../../context/CrmContext";
 import { generateAiDailyPack, todayISO } from "../../lib/aiTaskGenerator";
 import { ensureMode } from "../../data/dailyTaskCatalog";
@@ -121,7 +122,7 @@ export function DailyTaskDesk({ teacherId, allotted, students }: Props) {
         <div className="grid gap-6 xl:grid-cols-[1.4fr_0.7fr]">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-orange-600">
-              Teacher Daily Desk · AI Task Generator
+              Teacher Daily Desk · <DemoBadge label="Template pack" />
             </p>
             <h1 className="mt-2 text-3xl font-black">Class-wise Daily Tasks</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
@@ -192,15 +193,7 @@ export function DailyTaskDesk({ teacherId, allotted, students }: Props) {
         </div>
       </div>
 
-      {generating && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="rounded-2xl border border-orange-100 bg-orange-50 p-4 font-black text-orange-700"
-        >
-          Mock AI is selecting Class {active.classNumber} curriculum tasks for {date}...
-        </motion.div>
-      )}
+      {generating && <SkeletonCards count={4} />}
 
       <div className="panel-card">
         <h2 className="text-lg font-black">Add custom task</h2>

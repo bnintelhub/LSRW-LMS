@@ -1,4 +1,5 @@
 import { School } from "lucide-react";
+import { DemoBadge } from "../../components/DemoBadge";
 import { useAppStore } from "../../context/AppStoreContext";
 import { useCrm } from "../../context/CrmContext";
 import { decodeParentToken } from "../../lib/parentLink";
@@ -52,6 +53,9 @@ export function ParentReport({ studentId, token }: Props) {
     <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
       <div className="panel-card">
         <p className="text-xs font-black uppercase tracking-wide text-orange-600">Parent view · read only</p>
+        <div className="mt-2">
+          <DemoBadge label="Demo token · this browser" />
+        </div>
         <h1 className="mt-2 flex items-center gap-2 text-3xl font-black">
           <School size={26} /> {school.name}
         </h1>

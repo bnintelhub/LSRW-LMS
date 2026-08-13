@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { School } from "lucide-react";
 import { useAppStore } from "../../context/AppStoreContext";
+import { useToast } from "../../context/ToastContext";
 import type { SchoolProfile } from "../../types/progress";
 import { AcademicYearFields } from "./AcademicYear";
 
 export function SchoolProfileForm() {
   const { school, setSchool } = useAppStore();
+  const toast = useToast();
   const [draft, setDraft] = useState<SchoolProfile>(school);
-  const [saved, setSaved] = useState(false);
 
   const save = () => {
     setSchool({
@@ -15,8 +16,7 @@ export function SchoolProfileForm() {
       name: draft.name.trim() || "LSRW Language Lab",
       address: draft.address.trim(),
     });
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    toast("School profile saved");
   };
 
   return (
@@ -61,7 +61,6 @@ export function SchoolProfileForm() {
         <button className="rounded-xl bg-orange-500 px-5 py-2.5 font-black text-white" onClick={save}>
           Save profile
         </button>
-        {saved && <p className="text-sm font-bold text-emerald-700">Saved. Reports will use this school name.</p>}
       </div>
     </div>
   );

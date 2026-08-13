@@ -42,88 +42,93 @@ function getBotReply(
   if (q.includes("hello") || q.includes("hi") || q.includes("namaste") || q.includes("hey")) {
     const greeting =
       ctx.role === "student"
-        ? "Hello! I'm your LSRW Assistant. Ask me about today's word, your labs, or how to use the platform."
+        ? "Hello! I can explain Word of the Day, today's tasks, labs, badges, and login."
         : ctx.role === "teacher"
-          ? "Hello, Teacher! I can help with session controls, daily tasks, and student monitoring."
-          : "Hello! I'm the LSRW Language Lab assistant. How can I help you today?";
+          ? "Hello, Teacher. I can help with starting a lab session, daily tasks, attendance, and the submissions inbox."
+          : "Hello. I can explain login, onboarding, teacher allotments, and parent report links.";
     return greeting;
   }
 
   if (q.includes("lsrw") || q.includes("what is lsrw")) {
     return [
-      "📖 **LSRW** stands for:",
-      "• **L**istening – hear and understand spoken English",
-      "• **S**peaking – practice pronunciation and fluency",
-      "• **R**eading – improve comprehension and speed (WPM)",
-      "• **W**riting – learn grammar and structured writing",
-      "",
-      "This lab covers all four skills with AI-powered exercises!",
+      "LSRW stands for Listening, Speaking, Reading, and Writing.",
+      "This demo covers all four skills with class-adaptive games (1–4) and labs (5–12).",
     ].join("\n");
   }
 
   if (q.includes("login") || q.includes("session") || q.includes("class start")) {
     if (ctx.role === "student" && ctx.studentClass) {
       if (ctx.isSessionActive) {
-        return `✅ Your class (Class ${ctx.studentClass.classNumber}-${ctx.studentClass.section}) session is active. You can access all labs and tasks.`;
+        return `Your class (Class ${ctx.studentClass.classNumber}-${ctx.studentClass.section}) session is active. You can open labs and tasks.`;
       }
-      return `⏳ Your class has not been started by your teacher yet. Please wait until your teacher starts the lab session for Class ${ctx.studentClass.classNumber}-${ctx.studentClass.section}.`;
+      return `Wait until your teacher starts the lab session for Class ${ctx.studentClass.classNumber}-${ctx.studentClass.section}.`;
     }
     if (ctx.role === "teacher") {
-      return "Go to **Teacher Dashboard → Start Lab Session** to begin your class. Once started, students in that class can log in.";
+      return "Teacher Dashboard → Start Lab Session. Students in that class-section can log in after you start.";
     }
-    return "Students can log in only after their teacher starts the lab session for their class and section.";
+    return "Students log in only after their teacher starts the lab session for their class and section.";
   }
 
   if (q.includes("task") || q.includes("homework") || q.includes("assignment")) {
     return ctx.role === "student"
-      ? "Open **Today's Tasks** from the sidebar to see your AI-generated daily tasks. Complete all four LSRW skills to earn XP!"
-      : "Teachers can generate and publish daily task packs from the **Daily Task Desk** tab.";
+      ? "Open Today's Tasks in the sidebar. Your teacher must publish a pack first."
+      : "Daily Task Desk: generate a pack (template, not a live LLM), edit, then publish.";
   }
 
   if (q.includes("speaking") || q.includes("mic")) {
-    return "🎤 **AI Speaking Lab**: Click 'AI Speaking Lab' in the sidebar. Read the prompt aloud into your microphone. The AI analyzes your pronunciation and fluency.";
+    return "Speaking Lab uses the browser microphone and a word-match score. It is not a cloud pronunciation API. Chrome or Edge works best.";
   }
 
   if (q.includes("listening")) {
-    return "🎧 **Listening Studio**: Play the audio passage, then answer comprehension questions. Great for exam-style listening practice!";
+    return "Listening Studio plays browser text-to-speech (not MP3 files), then an MCQ or dictation quiz.";
   }
 
   if (q.includes("reading") || q.includes("wpm")) {
-    return "📚 **Reading & WPM Lab**: Read the passage, use the timer, then tap Finish & Save Score to record WPM and XP.";
+    return "Reading lab: timed passage, then comprehension MCQ. Combined WPM/quiz score saves to your dashboard.";
   }
 
   if (q.includes("writing")) {
-    return "✍️ **Writing AI Checker**: Write your paragraph in the text box. The AI checks grammar, structure, and vocabulary usage.";
+    return "Writing checker uses simple grammar rules, then you can submit the piece to the teacher inbox.";
   }
 
-  if (q.includes("xp") || q.includes("streak") || q.includes("score")) {
-    return "Earn XP by completing daily tasks and LSRW labs. Your streak counts consecutive days of practice. Check your dashboard for average scores and skill radar!";
+  if (q.includes("phonics") || q.includes("story") || q.includes("spelling")) {
+    return "Class 1–2: Phonics. Class 1–4: Story mode. Class 3–6: weekly Spelling bee. These sit in the student sidebar for those classes.";
+  }
+
+  if (q.includes("debate") || q.includes("interview") || q.includes("gd")) {
+    return "Class 9–12: Debate/GD with a 2-minute timer. Class 11–12: Mock interview deck. Both use the browser mic.";
+  }
+
+  if (q.includes("parent") || q.includes("report link")) {
+    return "Teachers and School Admin can copy a parent link. It is a demo hash token in this browser — not a signed login.";
+  }
+
+  if (q.includes("xp") || q.includes("streak") || q.includes("score") || q.includes("badge") || q.includes("leaderboard")) {
+    return "Completing a lab updates score, XP, and streak on this device. Leaderboard is class-section by XP. Badges unlock from those scores.";
   }
 
   if (q.includes("help") || q.includes("madad")) {
     return [
-      "I can help with:",
-      "• **Word of the day** – today's vocabulary",
-      "• **LSRW skills** – Listening, Speaking, Reading, Writing",
-      "• **Login & sessions** – when you can access the lab",
-      "• **Leaderboard & badges** – class rank and achievements",
-      "",
-      "Try asking: *'What is today's word?'* or *'How do I use Speaking Lab?'*",
+      "I only answer features that exist in this demo:",
+      "• Word of the Day",
+      "• Login after teacher starts session",
+      "• Today's tasks, labs/games, XP, badges, leaderboard",
+      "• Phonics / story / spelling / debate / interview (by class)",
+      "• Teacher inbox, attendance, live grid (same-browser heartbeat)",
+      "• Parent report link (demo token)",
     ].join("\n");
   }
 
   if (q.includes("thank")) {
-    return "You're welcome! Keep practicing your English every day. 📚✨";
+    return "You're welcome. Practise a little every day.";
   }
 
   return [
-    "I'm not sure about that, but I can help with:",
+    "I don't have that answer. Try:",
     "• Word of the day",
-    "• LSRW lab guides",
-    "• Login & class sessions",
-    "• Daily tasks & XP",
-    "",
-    "Try one of the quick buttons below!",
+    "• How do I log in?",
+    "• How do Speaking / Listening labs work?",
+    "• Parent report link",
   ].join("\n");
 }
 
@@ -207,7 +212,7 @@ export function Chatbot({ role = "guest", studentClass, isSessionActive }: Chatb
                 </div>
                 <div>
                   <p className="font-black">LSRW Assistant</p>
-                  <p className="text-xs text-orange-100">Ask me anything!</p>
+                  <p className="text-xs text-orange-100">Demo helper · real features only</p>
                 </div>
               </div>
               <button

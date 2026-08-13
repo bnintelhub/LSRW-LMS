@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from "react";
-import { Bell, LogOut, Mail } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { Bell, LogOut, Mail, Menu, X } from "lucide-react";
 import { PortalSearch, type PortalSearchItem } from "./PortalSearch";
 
 export type PortalNavItem = {
@@ -41,6 +41,7 @@ export function PortalShell({
   headerExtra,
   children,
 }: Props) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const allSearchItems = useMemo<PortalSearchItem[]>(
     () => [
       ...nav.map((item) => ({
@@ -57,13 +58,19 @@ export function PortalShell({
 
   return (
     <div className="portal-shell">
-      <aside className="portal-sidebar">
+      {sidebarOpen && (
+        <button className="portal-sidebar-overlay" aria-label="Close menu" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside className={`portal-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="portal-brand">
           <div className="portal-logo">📚</div>
           <div>
             <p className="font-black text-slate-900">{brand}</p>
             <p className="text-[11px] font-bold uppercase tracking-wide text-orange-500">{roleLabel}</p>
           </div>
+          <button className="portal-close-nav" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="portal-nav">
@@ -71,7 +78,10 @@ export function PortalShell({
             <button
               key={item.id}
               className={`portal-nav-item ${active === item.id ? "active" : ""}`}
-              onClick={() => onNav(item.id)}
+              onClick={() => {
+                onNav(item.id);
+                setSidebarOpen(false);
+              }}
             >
               <span className="portal-nav-icon">{item.icon}</span>
               {item.label}
@@ -92,6 +102,9 @@ export function PortalShell({
 
       <div className="portal-main">
         <header className="portal-topbar">
+          <button className="portal-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+            <Menu size={20} />
+          </button>
           <PortalSearch items={allSearchItems} />
           <div className="flex items-center gap-2">
             {headerExtra}

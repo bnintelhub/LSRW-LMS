@@ -278,19 +278,19 @@ useEffect(() => {
 
 ---
 
-### Sprint 6 — Polish & Refactor (3–4 din) ✨
+### Sprint 6 — Polish & Refactor (3–4 din) ✨ ✅
 **Goal:** Production-feel demo, code cleanup
 
 | # | Task | Detail |
 |---|------|--------|
-| 6.1 | Extract `LiveMonitoring`, `TeacherHome`, `StudentHome` from `App.tsx` | Smaller files |
-| 6.2 | Chatbot update — only real features list | `Chatbot.tsx` |
-| 6.3 | Empty states everywhere | No tasks, no submissions, etc. |
-| 6.4 | Loading skeletons | Framer Motion placeholders |
-| 6.5 | Toast notifications | `sonner` or simple toast context |
-| 6.6 | Responsive pass | Mobile sidebar collapse |
-| 6.7 | "Demo mode" badges | Simulated features labeled |
-| 6.8 | Reset demo data button | Admin → clear localStorage |
+| 6.1 | Extract `LiveMonitoring`, `TeacherHome`, `StudentHome` from `App.tsx` | Smaller files | [x] |
+| 6.2 | Chatbot update — only real features list | `Chatbot.tsx` | [x] |
+| 6.3 | Empty states everywhere | No tasks, no submissions, etc. | [x] |
+| 6.4 | Loading skeletons | Framer Motion placeholders | [x] |
+| 6.5 | Toast notifications | `sonner` or simple toast context | [x] |
+| 6.6 | Responsive pass | Mobile sidebar collapse | [x] |
+| 6.7 | "Demo mode" badges | Simulated features labeled | [x] |
+| 6.8 | Reset demo data button | Admin → clear localStorage | [x] |
 
 ---
 

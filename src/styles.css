@@ -404,6 +404,26 @@ button {
   padding: 0.85rem 1.5rem;
 }
 
+.portal-menu-btn,
+.portal-close-nav {
+  display: none;
+  height: 2.25rem;
+  width: 2.25rem;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #334155;
+}
+
+.portal-brand {
+  position: relative;
+}
+
+.portal-close-nav {
+  margin-left: auto;
+}
+
 .portal-search-wrap {
   position: relative;
   width: min(440px, 48vw);
@@ -615,27 +635,50 @@ button {
 @media (max-width: 960px) {
   .portal-shell {
     grid-template-columns: 1fr;
-    height: auto;
+    height: 100vh;
     min-height: 100vh;
-    overflow: visible;
+    overflow: hidden;
+  }
+  .portal-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    border: 0;
+    background: rgba(15, 23, 42, 0.35);
   }
   .portal-sidebar {
-    border-right: 0;
-    border-bottom: 1px solid #e8edf5;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(280px, 86vw);
+    height: 100vh;
+    border-right: 1px solid #e8edf5;
+    border-bottom: 0;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+  }
+  .portal-sidebar.open {
+    transform: translateX(0);
   }
   .portal-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    overflow: visible;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    overflow-y: auto;
   }
   .portal-content {
-    overflow: visible;
+    overflow: auto;
   }
   .portal-search-wrap {
     width: min(100%, 440px);
   }
   .welcome-art {
     display: none;
+  }
+  .portal-menu-btn {
+    display: grid;
+  }
+  .portal-close-nav {
+    display: grid;
   }
 }
 

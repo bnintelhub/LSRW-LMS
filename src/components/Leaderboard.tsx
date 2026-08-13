@@ -1,4 +1,5 @@
 import { Trophy } from "lucide-react";
+import { EmptyState } from "./EmptyState";
 import type { Student } from "../types/student";
 
 export function Leaderboard({
@@ -18,7 +19,10 @@ export function Leaderboard({
         <p className="mt-2 text-orange-50">Top students in your class by XP. Keep practicing to climb.</p>
       </div>
       <div className="content-card space-y-2">
-        {students.map((student, index) => {
+        {!students.length ? (
+          <EmptyState title="No classmates yet" text="Leaderboard fills when students in your class-section earn XP." />
+        ) : (
+        students.map((student, index) => {
           const mine = student.id === currentId;
           return (
             <div
@@ -44,7 +48,8 @@ export function Leaderboard({
               <p className="text-lg font-black text-orange-600">{student.xp} XP</p>
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
